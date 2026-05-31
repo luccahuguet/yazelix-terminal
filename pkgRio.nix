@@ -106,10 +106,10 @@ in
         install -dm 755 "$out/share/applications"
         substitute misc/rio.desktop "$out/share/applications/yazelix-terminal.desktop" \
           --replace-fail "TryExec=rio" "TryExec=$out/bin/yazelix-terminal" \
-          --replace-fail "Exec=rio" "Exec=$out/bin/yazelix-terminal" \
+          --replace-fail "Exec=rio" "Exec=$out/bin/yazelix-terminal --app-id yazelix-terminal" \
           --replace-fail "Icon=rio" "Icon=yazelix-terminal" \
           --replace-fail "Name=Rio" "Name=Yazelix Terminal" \
-          --replace-fail "StartupWMClass=Rio" "StartupWMClass=rio"
+          --replace-fail "StartupWMClass=Rio" "StartupWMClass=yazelix-terminal"$'\n'"StartupNotify=true"
 
         # Install terminfo files
         install -dm 755 "$terminfo/share/terminfo/r/"
