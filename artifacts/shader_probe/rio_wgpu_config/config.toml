@@ -1,2 +1,3 @@
 [renderer]
 backend = "Webgpu"
+custom-shader = ["conformance/shaders/ghostty_cursor_probe.glsl"]

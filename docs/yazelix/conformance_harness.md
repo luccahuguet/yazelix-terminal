@@ -37,15 +37,19 @@ python3 tools/yazelix_conformance.py launch-cpu-screenshot
 ```
 
 The WGPU renderer probe config lives at
-`artifacts/shader_probe/rio_wgpu_config/config.toml`. It only sets:
+`artifacts/shader_probe/rio_wgpu_config/config.toml`. It sets the WGPU backend
+and loads the checked-in Ghostty cursor probe:
 
 ```toml
 [renderer]
 backend = "Webgpu"
+custom-shader = ["conformance/shaders/ghostty_cursor_probe.glsl"]
 ```
 
 Use it when validating shader work so failures clearly belong to WGPU or the
-host graphics stack, not to Rio's default native Vulkan backend.
+host graphics stack, not to Rio's default native Vulkan backend. On a working
+GPU stack, that probe should compile through Naga's GLSL frontend and tint the
+cursor area from `iCurrentCursor`.
 
 ## Current Fixture Scope
 

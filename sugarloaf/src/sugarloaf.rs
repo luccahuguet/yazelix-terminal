@@ -5,6 +5,10 @@ pub mod state;
 use crate::components::core::image::Handle;
 #[cfg(feature = "wgpu")]
 use crate::components::filters::{Filter, FiltersBrush};
+#[cfg(feature = "wgpu")]
+use crate::components::ghostty_shaders::{
+    GhosttyShaderBrush, GhosttyShaderFrameState, GhosttyShaderPath,
+};
 use crate::font::{fonts::SugarloafFont, FontLibrary};
 use crate::font_cache::{compute_advance, resolve_with, FontCache, ResolvedGlyph};
 use crate::layout::RootStyle;
@@ -36,6 +40,8 @@ pub struct Sugarloaf<'a> {
     pub background_color: Option<Color>,
     pub background_image: Option<ImageProperties>,
     pub graphics: Graphics,
+    #[cfg(feature = "wgpu")]
+    ghostty_shader_brush: Option<GhosttyShaderBrush>,
     #[cfg(feature = "wgpu")]
     filters_brush: Option<FiltersBrush>,
     /// Pixel data for standalone image textures, keyed by ImageId.
@@ -295,6 +301,8 @@ impl Sugarloaf<'_> {
             renderer,
             graphics: Graphics::default(),
             #[cfg(feature = "wgpu")]
+            ghostty_shader_brush: None,
+            #[cfg(feature = "wgpu")]
             filters_brush: None,
             image_data: rustc_hash::FxHashMap::default(),
             cpu_cache: crate::renderer::cpu::CpuCache::new(),
@@ -499,6 +507,45 @@ impl Sugarloaf<'_> {
                     brush.update_filters(ctx, filters);
                 }
             }
+        }
+    }
+
+    #[inline]
+    #[cfg(feature = "wgpu")]
+    pub fn update_ghostty_shaders(&mut self, paths: &[GhosttyShaderPath]) {
+        if paths.is_empty() {
+            self.ghostty_shader_brush = None;
+            return;
+        }
+
+        let ctx = match &mut self.ctx.inner {
+            crate::context::ContextType::Wgpu(wgpu) => wgpu,
+            _ => {
+                tracing::error!(
+                    "Ghostty custom shaders require the WGPU renderer backend"
+                );
+                self.ghostty_shader_brush = None;
+                return;
+            }
+        };
+
+        if self.ghostty_shader_brush.is_none() {
+            self.ghostty_shader_brush = Some(GhosttyShaderBrush::default());
+        }
+
+        if let Some(ref mut brush) = self.ghostty_shader_brush {
+            brush.update_shaders(ctx, paths);
+            if brush.is_empty() {
+                self.ghostty_shader_brush = None;
+            }
+        }
+    }
+
+    #[inline]
+    #[cfg(feature = "wgpu")]
+    pub fn update_ghostty_shader_frame_state(&mut self, state: GhosttyShaderFrameState) {
+        if let Some(ref mut brush) = self.ghostty_shader_brush {
+            brush.update_frame_state(state);
         }
     }
 
@@ -1220,6 +1267,15 @@ impl Sugarloaf<'_> {
                 self.text
                     .render_wgpu(&mut rpass, [ctx.size.width, ctx.size.height]);
             }
+        }
+
+        if let Some(ref mut ghostty_shader_brush) = self.ghostty_shader_brush {
+            ghostty_shader_brush.render(
+                ctx,
+                &mut encoder,
+                &frame.texture,
+                &frame.texture,
+            );
         }
 
         if let Some(ref mut filters_brush) = self.filters_brush {

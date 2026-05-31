@@ -61,6 +61,51 @@ const MAX_SEARCH_WHILE_TYPING: Option<usize> = Some(1000);
 /// Maximum number of search terms stored in the history.
 const MAX_SEARCH_HISTORY_SIZE: usize = 255;
 
+#[cfg(feature = "wgpu")]
+fn ghostty_cursor_style(
+    style: crate::grid_emit::CursorRenderStyle,
+) -> rio_backend::sugarloaf::GhosttyCursorStyle {
+    match style {
+        crate::grid_emit::CursorRenderStyle::Block => {
+            rio_backend::sugarloaf::GhosttyCursorStyle::Block
+        }
+        crate::grid_emit::CursorRenderStyle::BlockHollow => {
+            rio_backend::sugarloaf::GhosttyCursorStyle::BlockHollow
+        }
+        crate::grid_emit::CursorRenderStyle::Bar => {
+            rio_backend::sugarloaf::GhosttyCursorStyle::Bar
+        }
+        crate::grid_emit::CursorRenderStyle::Underline => {
+            rio_backend::sugarloaf::GhosttyCursorStyle::Underline
+        }
+    }
+}
+
+#[cfg(feature = "wgpu")]
+fn ghostty_cursor_rect(
+    style: crate::grid_emit::CursorRenderStyle,
+    col: u16,
+    row: u16,
+    panel_left: f32,
+    panel_top: f32,
+    cell_w: f32,
+    cell_h: f32,
+) -> [f32; 4] {
+    let x = panel_left + col as f32 * cell_w;
+    let y = panel_top + row as f32 * cell_h;
+    let thickness =
+        crate::grid_emit::cursor_thickness(cell_h.round().max(1.0) as u32) as f32;
+
+    match style {
+        crate::grid_emit::CursorRenderStyle::Block
+        | crate::grid_emit::CursorRenderStyle::BlockHollow => [x, y, cell_w, cell_h],
+        crate::grid_emit::CursorRenderStyle::Bar => [x, y, thickness, cell_h],
+        crate::grid_emit::CursorRenderStyle::Underline => {
+            [x, y + (cell_h - thickness).max(0.0), cell_w, thickness]
+        }
+    }
+}
+
 pub struct Screen<'screen> {
     bindings: crate::bindings::KeyBindings,
     mouse_bindings: Vec<MouseBinding>,
@@ -72,6 +117,7 @@ pub struct Screen<'screen> {
     pub renderer: Renderer,
     pub sugarloaf: Sugarloaf<'screen>,
     pub context_manager: context::ContextManager<EventProxy>,
+    is_focused: bool,
     last_ime_cursor_pos: Option<(f32, f32)>,
     hints_config: Vec<std::rc::Rc<rio_backend::config::hints::Hint>>,
     pub resize_state: Option<crate::layout::ResizeState>,
@@ -196,6 +242,8 @@ impl Screen<'_> {
         };
 
         #[cfg(feature = "wgpu")]
+        sugarloaf.update_ghostty_shaders(config.renderer.custom_shaders.as_slice());
+        #[cfg(feature = "wgpu")]
         sugarloaf.update_filters(config.renderer.filters.as_slice());
 
         let mut renderer = Renderer::new(config);
@@ -318,6 +366,7 @@ impl Screen<'_> {
             modifiers: Modifiers::default(),
             context_manager,
             sugarloaf,
+            is_focused: true,
             mouse: Mouse::new(config.scroll.multiplier, config.scroll.divider),
             touchpurpose: TouchPurpose::default(),
             renderer,
@@ -472,6 +521,9 @@ impl Screen<'_> {
         s.font_size = config.fonts.size;
         s.line_height = config.line_height;
 
+        #[cfg(feature = "wgpu")]
+        self.sugarloaf
+            .update_ghostty_shaders(config.renderer.custom_shaders.as_slice());
         #[cfg(feature = "wgpu")]
         self.sugarloaf
             .update_filters(config.renderer.filters.as_slice());
@@ -3134,6 +3186,7 @@ impl Screen<'_> {
 
     #[inline]
     pub fn on_focus_change(&mut self, is_focused: bool) {
+        self.is_focused = is_focused;
         if self.get_mode().contains(Mode::FOCUS_IN_OUT) {
             let chr = if is_focused { "I" } else { "O" };
 
@@ -3759,6 +3812,8 @@ impl Screen<'_> {
                 &mut rio_backend::sugarloaf::grid::GridRenderer,
                 rio_backend::sugarloaf::grid::GridUniforms,
             )> = Vec::with_capacity(panels.len());
+            #[cfg(feature = "wgpu")]
+            let mut ghostty_shader_frame_state = None;
 
             let rasterizer = &mut self.grid_rasterizer;
             let renderer_ref = &self.renderer;
@@ -3970,6 +4025,53 @@ impl Screen<'_> {
                 let panel_left = (scaled_margin.left + p.layout_rect[0]).round();
                 let panel_top = (scaled_margin.top + p.layout_rect[1]).round();
 
+                #[cfg(feature = "wgpu")]
+                if p.is_active {
+                    let palette = std::array::from_fn(|idx| {
+                        renderer_ref.color(idx, &p.term_colors)
+                    });
+                    let cursor = render_style.map(|style| {
+                        rio_backend::sugarloaf::GhosttyShaderCursor {
+                            rect: ghostty_cursor_rect(
+                                style,
+                                p.cursor_col,
+                                p.cursor_row,
+                                panel_left,
+                                panel_top,
+                                p.cell_w,
+                                p.cell_h,
+                            ),
+                            color: p.cursor_color,
+                            style: ghostty_cursor_style(style),
+                        }
+                    });
+                    ghostty_shader_frame_state =
+                        Some(rio_backend::sugarloaf::GhosttyShaderFrameState {
+                            cursor,
+                            cursor_visible: cursor.is_some(),
+                            focus: self.is_focused,
+                            palette,
+                            background_color: p.term_colors
+                                [rio_backend::config::colors::NamedColor::Background
+                                    as usize]
+                                .unwrap_or(self.renderer.named_colors.background.0),
+                            foreground_color: p.term_colors
+                                [rio_backend::config::colors::NamedColor::Foreground
+                                    as usize]
+                                .unwrap_or(self.renderer.named_colors.foreground),
+                            cursor_color: p.cursor_color,
+                            cursor_text: self.renderer.named_colors.background.0,
+                            selection_background_color: self
+                                .renderer
+                                .named_colors
+                                .selection_background,
+                            selection_foreground_color: self
+                                .renderer
+                                .named_colors
+                                .selection_foreground,
+                        });
+                }
+
                 // Bg-tint uniforms fire ONLY for the active block
                 // style — the bg shader paints the cursor cell in
                 // `cursor_bg_color` and the text shader swaps glyph
@@ -4020,6 +4122,11 @@ impl Screen<'_> {
                 };
 
                 frame_grids.push((grid, uniforms));
+            }
+
+            #[cfg(feature = "wgpu")]
+            if let Some(state) = ghostty_shader_frame_state {
+                self.sugarloaf.update_ghostty_shader_frame_state(state);
             }
 
             if should_present {

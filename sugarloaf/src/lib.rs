@@ -50,6 +50,10 @@ pub use crate::sugarloaf::{
 // `Filter` is the librashader CRT/scanline-filter wrapper — wgpu-only.
 #[cfg(feature = "wgpu")]
 pub use components::filters::Filter;
+#[cfg(feature = "wgpu")]
+pub use components::ghostty_shaders::{
+    GhosttyCursorStyle, GhosttyShaderCursor, GhosttyShaderFrameState,
+};
 pub use layout::{
     SpanStyle, SpanStyleDecoration, TextDimensions, UnderlineInfo, UnderlineShape,
 };

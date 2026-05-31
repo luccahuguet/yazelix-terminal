@@ -5,3 +5,5 @@ pub mod core;
 // builds that don't enable the `wgpu` feature.
 #[cfg(feature = "wgpu")]
 pub mod filters;
+#[cfg(feature = "wgpu")]
+pub mod ghostty_shaders;

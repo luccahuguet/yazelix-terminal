@@ -609,6 +609,10 @@ impl Config {
             if let Some(filters) = &renderer_overwrite.filters {
                 self.renderer.filters = filters.clone();
             }
+            #[cfg(feature = "wgpu")]
+            if let Some(custom_shaders) = &renderer_overwrite.custom_shaders {
+                self.renderer.custom_shaders = custom_shaders.clone();
+            }
             if let Some(strategy) = &renderer_overwrite.strategy {
                 self.renderer.strategy = strategy.clone();
             }
@@ -679,6 +683,7 @@ impl Default for CursorConfig {
 }
 
 #[cfg(test)]
+// Test lane: default
 mod tests {
     use super::*;
     use colors::{hex_to_color_arr, hex_to_color_wgpu};
@@ -809,6 +814,24 @@ mod tests {
         assert_eq!(result.colors.foreground, colors::defaults::foreground());
         assert_eq!(result.colors.tabs_active, colors::defaults::tabs_active());
         assert_eq!(result.colors.cursor, colors::defaults::cursor());
+    }
+
+    #[cfg(feature = "wgpu")]
+    #[test]
+    fn test_change_config_renderer_custom_shader() {
+        // Defends: Ghostty-compatible shader paths are user config, not hardcoded.
+        let result = create_temporary_config(
+            "change-renderer-custom-shader",
+            r#"
+            [renderer]
+            custom-shader = ["cursor.glsl", "bloom.glsl"]
+        "#,
+        );
+
+        assert_eq!(
+            result.renderer.custom_shaders,
+            ["cursor.glsl", "bloom.glsl"]
+        );
     }
 
     #[test]

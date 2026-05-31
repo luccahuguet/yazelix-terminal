@@ -473,7 +473,7 @@ impl CursorRenderStyle {
 /// cell height. Capped at 2 px so deeply-zoomed cells don't get a
 /// chunky frame / fat bar instead of a cursor hint.
 #[inline]
-fn cursor_thickness(cell_h: u32) -> u32 {
+pub fn cursor_thickness(cell_h: u32) -> u32 {
     (cell_h / 16).clamp(1, 2)
 }
 

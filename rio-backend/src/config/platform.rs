@@ -121,6 +121,9 @@ pub struct PlatformRenderer {
     #[cfg(feature = "wgpu")]
     #[serde(default = "Option::default", skip_serializing)]
     pub filters: Option<Vec<sugarloaf::Filter>>,
+    #[cfg(feature = "wgpu")]
+    #[serde(default = "Option::default", rename = "custom-shader")]
+    pub custom_shaders: Option<Vec<String>>,
     #[serde(default = "Option::default")]
     pub strategy: Option<renderer::RendererStategy>,
 }

@@ -19,6 +19,9 @@ pub struct Renderer {
     #[serde(default = "Vec::default")]
     #[cfg(feature = "wgpu")]
     pub filters: Vec<Filter>,
+    #[serde(default = "Vec::default", rename = "custom-shader")]
+    #[cfg(feature = "wgpu")]
+    pub custom_shaders: Vec<String>,
     #[serde(default = "RendererStategy::default")]
     pub strategy: RendererStategy,
     /// Use the CPU rasterizer (tiny-skia) instead of the GPU pipeline.
@@ -67,6 +70,8 @@ impl Default for Renderer {
             disable_occluded_render: default_disable_occluded_render(),
             #[cfg(feature = "wgpu")]
             filters: Vec::default(),
+            #[cfg(feature = "wgpu")]
+            custom_shaders: Vec::default(),
             strategy: RendererStategy::Events,
             use_cpu: default_use_cpu(),
         }

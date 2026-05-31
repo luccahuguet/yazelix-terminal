@@ -152,3 +152,19 @@ None of those pivot criteria were proven by source inspection. The current block
 - Follow-up beads:
   - `yzt-7p3.7` for the Ghostty-compatible cursor shader runtime
   - create a dedicated graphics-environment bead if WGPU visual validation remains blocked after runtime code exists
+
+## Runtime Implementation Update
+
+`yzt-7p3.7` added the first WGPU implementation slice:
+
+- `[renderer] custom-shader = ["path/to/shader.glsl"]`
+- WGPU-only `GhosttyShaderBrush` beside `FiltersBrush`
+- Shadertoy prefix exposing Ghostty cursor/color/focus/palette uniform names
+- std140-compatible `GhosttyShaderUniforms`
+- active-panel cursor rectangle, cursor style, palette, terminal colors, and window focus state flowing into Sugarloaf before present
+- Naga GLSL pre-parse before creating the WGPU shader module, so invalid shader files produce a logged load error instead of being blindly handed to the render path
+- render order: Rio grid/text/UI, Ghostty shaders, then existing librashader filters
+
+The implementation is source-compatible with the checked-in
+`conformance/shaders/ghostty_cursor_probe.glsl` probe. Visual screenshot proof is
+still blocked by the local GPU/surface issue listed above.
