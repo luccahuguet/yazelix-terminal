@@ -1,6 +1,7 @@
 # Performance And Graphics Benchmark
 
-Status: local benchmark evidence for `yzt-7p3.15`.
+Status: local benchmark evidence for `yzt-7p3.15`, `yzt-7p3.39`, and
+`yzt-7p3.41`.
 
 Date: 2026-05-31.
 
@@ -145,6 +146,23 @@ The `wgpu-shader` template enables the Ghostty cursor shader probe and Rio's
 game render strategy, which makes long-running shader animation stability
 measurable from the same frame log.
 
+For Ghostty or another terminal binary, pass terminal arguments before the
+child `-e` command with repeated `--terminal-arg=...` values:
+
+```bash
+python3 tools/yazelix_benchmark.py frame-run \
+  --terminal "$(command -v ghostty)" \
+  --config-template host \
+  --terminal-arg=--config-default-files=false \
+  --terminal-arg=--gtk-single-instance=false \
+  --terminal-arg=--window-decoration=false \
+  --workload scroll
+```
+
+When `nvidia-smi` is available, the harness samples host GPU utilization into
+`gpu_samples.csv` by default. Use `--gpu-sampler none` to disable that optional
+probe.
+
 Existing frame logs can be summarized without launching a terminal:
 
 ```bash
@@ -153,12 +171,50 @@ python3 tools/yazelix_benchmark.py frame-summary \
   --samples artifacts/benchmarks/frame_time/<run>/proc_samples.csv
 ```
 
+## Comparable Rio/Ghostty Runs
+
+Status: one local release-binary sample per case, collected on 2026-05-31.
+
+Raw summary and sample artifacts:
+
+- `artifacts/benchmarks/frame_time/2026_05_31_rio_wgpu_scroll/`
+- `artifacts/benchmarks/frame_time/2026_05_31_ghostty_opengl_scroll/`
+- `artifacts/benchmarks/frame_time/2026_05_31_rio_wgpu_shader_idle/`
+- `artifacts/benchmarks/frame_time/2026_05_31_ghostty_opengl_shader_idle/`
+
+The Rio runs use `target/release/rio` under `nix develop`. The Ghostty runs use
+Ghostty `1.3.1` with `--config-default-files=false`,
+`--gtk-single-instance=false`, and `--window-decoration=false`. Shader runs use
+the same `conformance/shaders/ghostty_cursor_probe.glsl` source.
+
+| Case | Workload | Wall | First Rio Frame | Rio Frames | Process CPU | Max RSS | NVIDIA GPU Max |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Rio WGPU/Vulkan | 20k-line scroll + 0.5s hold | 0.869s | 12.4ms | 5 redraw / 4 presented | 19.9% | 38.8 MiB | 0% |
+| Ghostty OpenGL | 20k-line scroll + 0.5s hold | 1.072s | n/a | n/a | 44.3% | 149.8 MiB | 0% |
+| Rio WGPU/Vulkan + shader | idle + 4s hold | 4.239s | 13.0ms | 69,688 presented | 96.9% | 25.0 MiB | 0% |
+| Ghostty OpenGL + shader | idle + 4s hold | 4.459s | n/a | n/a | 18.2% | 164.5 MiB | 0% |
+
+Interpretation:
+
+- The scroll sample favors Rio on local wall time, process CPU, and RSS. Rio
+  also produces internal frame timing while Ghostty does not expose comparable
+  frame events through this external harness.
+- The shader idle sample reveals a Rio problem: the current shader/game render
+  strategy spins far above display cadence and consumes almost a full CPU core.
+  That is tracked as `yzt-7p3.46`.
+- The `nvidia-smi` samples saw 0% utilization and 2 MiB memory on the discrete
+  NVIDIA GPU for every run. On this host that likely means the sampled GPU is
+  not the compositor/render path for these windows; it is not proof of zero GPU
+  work.
+
 ## Remaining Gaps
 
 The next useful benchmark work should add:
 
-- comparable Ghostty runs that use the same workload definitions where possible
-- GPU utilization sampling through optional host tools when available
-- release-package benchmarks instead of only local `target/release/rio`
+- repeated samples with aggregation instead of one local sample per case
+- direct Ghostty frame pacing instrumentation if an external or source-level
+  hook is found
+- a fix for `yzt-7p3.46` so Rio shader/game mode is throttled to useful frame
+  cadence instead of hot-looping
 
 Tracked as Bead `yzt-7p3.41`.

@@ -1,0 +1,24 @@
+metric,value
+schema,1
+frame_count,0
+presented_frame_count,0
+first_redraw_ms,
+first_presented_frame_ms,
+redraw_delta_ms.count,0
+presented_delta_ms.count,0
+render_duration_ms.count,0
+target_vblank_ms.count,0
+process.sample_count,18
+process.wall_seconds,0.857337389
+process.cpu_seconds,0.38
+process.cpu_percent,44.32327399639397
+process.max_rss_kb,153400
+command.terminal_argv,"['/nix/store/6cxib3vcpm7r6cwrq37khbdmabqzc7s4-yazelix/toolbin/ghostty', '--config-default-files=false', '--gtk-single-instance=false', '--window-decoration=false', '-e', 'bash', '--noprofile', '--norc', '-c', 'for i in $(seq 1 20000); do printf \'yazelix frame benchmark line %05d\\n\' ""$i""; done; sleep 0.5']"
+command.returncode,0
+command.timed_out,False
+command.wall_time_seconds,1.072437185
+command.frame_log,artifacts/benchmarks/frame_time/2026_05_31_ghostty_opengl_scroll/frame_log.jsonl
+command.proc_samples,artifacts/benchmarks/frame_time/2026_05_31_ghostty_opengl_scroll/proc_samples.csv
+command.gpu_samples,artifacts/benchmarks/frame_time/2026_05_31_ghostty_opengl_scroll/gpu_samples.csv
+command.config_template,host
+command.config_path,

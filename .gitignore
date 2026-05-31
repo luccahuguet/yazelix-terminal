@@ -31,3 +31,7 @@ dist/
 # Compiled SPIR-V — generated at build time by sugarloaf/build.rs into
 # OUT_DIR. The GLSL sources are checked in; the bytecode isn't.
 sugarloaf/src/**/*.spv
+
+# Frame logs can be large for long-running shader/game-loop benchmarks. Commit
+# summaries and sampled CSV evidence instead.
+artifacts/benchmarks/frame_time/**/frame_log.jsonl

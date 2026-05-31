@@ -8,6 +8,7 @@ import csv
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import time
@@ -113,6 +114,55 @@ def write_samples(path: Path, samples: list[dict[str, int]]) -> None:
         )
         writer.writeheader()
         writer.writerows(samples)
+
+
+def start_gpu_sampler(
+    mode: str,
+    artifact_dir: Path,
+) -> tuple[subprocess.Popen[bytes], Any, Any, Path] | None:
+    if mode == "none":
+        return None
+
+    nvidia_smi = shutil.which("nvidia-smi")
+    if nvidia_smi is None:
+        if mode == "nvidia-smi":
+            raise SystemExit("--gpu-sampler=nvidia-smi requested but nvidia-smi is not on PATH")
+        return None
+
+    samples_path = artifact_dir / "gpu_samples.csv"
+    stderr_path = artifact_dir / "gpu_samples.stderr.log"
+    stdout_file = samples_path.open("wb")
+    stderr_file = stderr_path.open("wb")
+    process = subprocess.Popen(
+        [
+            nvidia_smi,
+            "--query-gpu=timestamp,index,utilization.gpu,utilization.memory,memory.used,power.draw",
+            "--format=csv,nounits",
+            "--loop-ms=200",
+        ],
+        stdout=stdout_file,
+        stderr=stderr_file,
+    )
+    return process, stdout_file, stderr_file, samples_path
+
+
+def stop_gpu_sampler(
+    sampler: tuple[subprocess.Popen[bytes], Any, Any, Path] | None,
+) -> Path | None:
+    if sampler is None:
+        return None
+
+    process, stdout_file, stderr_file, samples_path = sampler
+    if process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=2.0)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=2.0)
+    stdout_file.close()
+    stderr_file.close()
+    return samples_path
 
 
 def read_samples(path: Path | None) -> list[dict[str, int]]:
@@ -295,38 +345,48 @@ def command_frame_run(args: argparse.Namespace) -> int:
         name, value = item.split("=", 1)
         env[name] = value
 
-    terminal_argv = [str(terminal), "-e", *child_command_from_args(args)]
+    terminal_argv = [
+        str(terminal),
+        *args.terminal_arg,
+        "-e",
+        *child_command_from_args(args),
+    ]
+    gpu_sampler = start_gpu_sampler(args.gpu_sampler, artifact_dir)
     start_ns = time.monotonic_ns()
     samples: list[dict[str, int]] = []
     timed_out = False
-    with stdout_log.open("wb") as stdout_file, stderr_log.open("wb") as stderr_file:
-        process = subprocess.Popen(
-            terminal_argv,
-            cwd=ROOT,
-            env=env,
-            stdout=stdout_file,
-            stderr=stderr_file,
-        )
-        deadline = time.monotonic() + args.timeout
-        while process.poll() is None:
-            sample = read_proc_sample(process.pid, start_ns)
-            if sample is not None:
-                samples.append(sample)
-            if time.monotonic() >= deadline:
-                timed_out = True
-                process.terminate()
-                try:
-                    process.wait(timeout=2.0)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait(timeout=2.0)
-                break
-            time.sleep(args.sample_interval)
+    try:
+        with stdout_log.open("wb") as stdout_file, stderr_log.open("wb") as stderr_file:
+            process = subprocess.Popen(
+                terminal_argv,
+                cwd=ROOT,
+                env=env,
+                stdout=stdout_file,
+                stderr=stderr_file,
+            )
+            deadline = time.monotonic() + args.timeout
+            while process.poll() is None:
+                sample = read_proc_sample(process.pid, start_ns)
+                if sample is not None:
+                    samples.append(sample)
+                if time.monotonic() >= deadline:
+                    timed_out = True
+                    process.terminate()
+                    try:
+                        process.wait(timeout=2.0)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait(timeout=2.0)
+                    break
+                time.sleep(args.sample_interval)
 
-        final_sample = read_proc_sample(process.pid, start_ns)
-        if final_sample is not None:
-            samples.append(final_sample)
-        returncode = process.poll()
+            final_sample = read_proc_sample(process.pid, start_ns)
+            if final_sample is not None:
+                samples.append(final_sample)
+            returncode = process.poll()
+    finally:
+        gpu_samples = stop_gpu_sampler(gpu_sampler)
+    end_ns = time.monotonic_ns()
 
     write_samples(samples_csv, samples)
     events = read_frame_log(frame_log) if frame_log.exists() else []
@@ -335,8 +395,12 @@ def command_frame_run(args: argparse.Namespace) -> int:
         "terminal_argv": terminal_argv,
         "returncode": returncode,
         "timed_out": timed_out,
+        "wall_time_seconds": (end_ns - start_ns) / 1_000_000_000.0,
         "frame_log": str(frame_log.relative_to(ROOT)),
         "proc_samples": str(samples_csv.relative_to(ROOT)),
+        "gpu_samples": (
+            None if gpu_samples is None else str(gpu_samples.relative_to(ROOT))
+        ),
         "config_template": args.config_template,
         "config_path": None if config_path is None else str(config_path.relative_to(ROOT)),
     }
@@ -403,8 +467,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subcommands = parser.add_subparsers(dest="command_name", required=True)
 
-    run = subcommands.add_parser("frame-run", help="run Rio with frame logging enabled")
+    run = subcommands.add_parser(
+        "frame-run",
+        help="run a terminal with Rio frame logging enabled when supported",
+    )
     run.add_argument("--terminal", default=str(default_terminal()))
+    run.add_argument(
+        "--terminal-arg",
+        action="append",
+        default=[],
+        help="terminal argv item before -e; use --terminal-arg=--flag for flag values",
+    )
     run.add_argument("--artifact-dir")
     run.add_argument(
         "--config-template",
@@ -421,6 +494,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--sample-interval", type=float, default=0.05)
     run.add_argument("--timeout", type=float, default=15.0)
     run.add_argument("--env", action="append", default=[])
+    run.add_argument(
+        "--gpu-sampler",
+        choices=["auto", "none", "nvidia-smi"],
+        default="auto",
+        help="optional GPU sampler; auto uses nvidia-smi when present",
+    )
     run.add_argument(
         "command",
         nargs=argparse.REMAINDER,

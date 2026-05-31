@@ -1,0 +1,49 @@
+{
+  "command": {
+    "config_path": null,
+    "config_template": "host",
+    "frame_log": "artifacts/benchmarks/frame_time/2026_05_31_ghostty_opengl_shader_idle/frame_log.jsonl",
+    "gpu_samples": "artifacts/benchmarks/frame_time/2026_05_31_ghostty_opengl_shader_idle/gpu_samples.csv",
+    "proc_samples": "artifacts/benchmarks/frame_time/2026_05_31_ghostty_opengl_shader_idle/proc_samples.csv",
+    "returncode": 0,
+    "terminal_argv": [
+      "/nix/store/6cxib3vcpm7r6cwrq37khbdmabqzc7s4-yazelix/toolbin/ghostty",
+      "--config-default-files=false",
+      "--gtk-single-instance=false",
+      "--window-decoration=false",
+      "--custom-shader=/home/lucca/pjs/yazelix-terminal/conformance/shaders/ghostty_cursor_probe.glsl",
+      "-e",
+      "bash",
+      "--noprofile",
+      "--norc",
+      "-c",
+      "printf 'yazelix frame benchmark idle\\n'; sleep 4.0"
+    ],
+    "timed_out": false,
+    "wall_time_seconds": 4.458786928
+  },
+  "first_presented_frame_ms": null,
+  "first_redraw_ms": null,
+  "frame_count": 0,
+  "presented_delta_ms": {
+    "count": 0
+  },
+  "presented_frame_count": 0,
+  "process": {
+    "cpu_percent": 18.1650860416024,
+    "cpu_seconds": 0.78,
+    "max_rss_kb": 168416,
+    "sample_count": 86,
+    "wall_seconds": 4.293951585
+  },
+  "redraw_delta_ms": {
+    "count": 0
+  },
+  "render_duration_ms": {
+    "count": 0
+  },
+  "schema": 1,
+  "target_vblank_ms": {
+    "count": 0
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "command": {
+    "config_path": null,
+    "config_template": "host",
+    "frame_log": "artifacts/benchmarks/frame_time/2026_05_31_ghostty_opengl_scroll/frame_log.jsonl",
+    "gpu_samples": "artifacts/benchmarks/frame_time/2026_05_31_ghostty_opengl_scroll/gpu_samples.csv",
+    "proc_samples": "artifacts/benchmarks/frame_time/2026_05_31_ghostty_opengl_scroll/proc_samples.csv",
+    "returncode": 0,
+    "terminal_argv": [
+      "/nix/store/6cxib3vcpm7r6cwrq37khbdmabqzc7s4-yazelix/toolbin/ghostty",
+      "--config-default-files=false",
+      "--gtk-single-instance=false",
+      "--window-decoration=false",
+      "-e",
+      "bash",
+      "--noprofile",
+      "--norc",
+      "-c",
+      "for i in $(seq 1 20000); do printf 'yazelix frame benchmark line %05d\\n' \"$i\"; done; sleep 0.5"
+    ],
+    "timed_out": false,
+    "wall_time_seconds": 1.072437185
+  },
+  "first_presented_frame_ms": null,
+  "first_redraw_ms": null,
+  "frame_count": 0,
+  "presented_delta_ms": {
+    "count": 0
+  },
+  "presented_frame_count": 0,
+  "process": {
+    "cpu_percent": 44.32327399639397,
+    "cpu_seconds": 0.38,
+    "max_rss_kb": 153400,
+    "sample_count": 18,
+    "wall_seconds": 0.857337389
+  },
+  "redraw_delta_ms": {
+    "count": 0
+  },
+  "render_duration_ms": {
+    "count": 0
+  },
+  "schema": 1,
+  "target_vblank_ms": {
+    "count": 0
+  }
+}
