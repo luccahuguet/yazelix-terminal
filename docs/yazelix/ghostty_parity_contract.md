@@ -171,6 +171,9 @@ required for the first usable Yazelix terminal:
 - Kitty multicursor protocol, if the public spec and real application behavior
   prove useful
 - Kitty file transfer protocol
+- Kitty file transfer currently has a safe OSC 5113 parser skeleton that denies
+  transfer starts with `EPERM`; useful file exchange requires the approval UI
+  and filesystem policy from `docs/yazelix/kitty_file_transfer_policy.md`
 - advanced terminal annotations or command-output navigation surfaces
 - richer prompt/command region actions once OSC 133 state is stable
 - image animation beyond what current Kitty graphics support needs for Yazelix

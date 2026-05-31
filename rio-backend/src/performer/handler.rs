@@ -208,6 +208,26 @@ pub struct KittyClipboard<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KittyFileTransferAction {
+    Send,
+    File,
+    Data,
+    EndData,
+    Receive,
+    Cancel,
+    Status,
+    Finish,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KittyFileTransfer {
+    pub action: KittyFileTransferAction,
+    pub id: String,
+    pub file_id: Option<String>,
+    pub quiet: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KittyNotificationKind {
     Title,
     Body,
@@ -484,6 +504,9 @@ pub trait Handler {
 
     /// Kitty OSC 5522 rich clipboard.
     fn kitty_clipboard(&mut self, _clipboard: KittyClipboard<'_>, _terminator: &str) {}
+
+    /// Kitty OSC 5113 file transfer.
+    fn kitty_file_transfer(&mut self, _transfer: KittyFileTransfer, _terminator: &str) {}
 
     /// Run the decaln routine.
     fn decaln(&mut self) {}
@@ -1336,6 +1359,12 @@ impl<U: Handler> Perform for Performer<'_, U> {
             // Kitty OSC 5522 rich clipboard.
             b"5522" => match osc::parse_kitty_clipboard(params) {
                 Some(clipboard) => self.handler.kitty_clipboard(clipboard, terminator),
+                None => unhandled(params),
+            },
+
+            // Kitty OSC 5113 file transfer.
+            b"5113" => match osc::parse_kitty_file_transfer(params) {
+                Some(transfer) => self.handler.kitty_file_transfer(transfer, terminator),
                 None => unhandled(params),
             },
 
@@ -2709,6 +2738,43 @@ mod tests {
             Some(b"dGV4dC9wbGFpbg==".as_slice())
         );
         assert_eq!(handler.payload.as_deref(), Some(b"aGVsbG8=".as_slice()));
+        assert_eq!(handler.terminator.as_deref(), Some("\x1b\\"));
+    }
+
+    #[test]
+    // Defends: real Kitty OSC 5113 bytes reach Handler::kitty_file_transfer without touching filesystem code.
+    fn osc5113_dispatches_to_kitty_file_transfer_handler() {
+        #[derive(Default)]
+        struct TestHandler {
+            transfer: Option<KittyFileTransfer>,
+            terminator: Option<String>,
+        }
+
+        impl Handler for TestHandler {
+            fn kitty_file_transfer(
+                &mut self,
+                transfer: KittyFileTransfer,
+                terminator: &str,
+            ) {
+                self.transfer = Some(transfer);
+                self.terminator = Some(terminator.to_owned());
+            }
+        }
+
+        let mut state = ProcessorState::default();
+        let mut handler = TestHandler::default();
+        let mut performer = Performer::new(&mut state, &mut handler);
+        let mut parser = Parser::default();
+
+        parser.advance(
+            &mut performer,
+            b"\x1b]5113;ac=data;id=session-1;fid=file_1;d=aGVsbG8=\x1b\\",
+        );
+
+        let transfer = handler.transfer.expect("OSC 5113 should dispatch");
+        assert_eq!(transfer.action, KittyFileTransferAction::Data);
+        assert_eq!(transfer.id, "session-1");
+        assert_eq!(transfer.file_id.as_deref(), Some("file_1"));
         assert_eq!(handler.terminator.as_deref(), Some("\x1b\\"));
     }
 

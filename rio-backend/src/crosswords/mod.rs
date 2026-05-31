@@ -45,8 +45,9 @@ use crate::event::WindowId;
 use crate::event::{EventListener, RioEvent, TerminalDamage};
 use crate::performer::handler::{
     Handler, KittyClipboard, KittyClipboardLocation, KittyClipboardOperation,
-    KittyNotification, KittyNotificationKind, SemanticPrompt, SemanticPromptAction,
-    SemanticPromptKind, TextSizing, TextSizingAlign,
+    KittyFileTransfer, KittyFileTransferAction, KittyNotification, KittyNotificationKind,
+    SemanticPrompt, SemanticPromptAction, SemanticPromptKind, TextSizing,
+    TextSizingAlign,
 };
 use crate::performer::parser::Params;
 use crate::selection::{Selection, SelectionRange, SelectionType};
@@ -538,6 +539,7 @@ where
     kitty_notifications: HashMap<String, PendingKittyNotification>,
     kitty_live_notifications: BTreeSet<String>,
     kitty_clipboard_write: Option<KittyClipboardWriteState>,
+    kitty_file_transfer_denied: BTreeSet<String>,
 
     /// Whether a `TerminalDamaged` event is already in flight to the renderer.
     /// Set by PTY thread before sending; cleared by renderer after extracting damage.
@@ -605,6 +607,7 @@ impl<U: EventListener> Crosswords<U> {
             kitty_notifications: HashMap::new(),
             kitty_live_notifications: BTreeSet::new(),
             kitty_clipboard_write: None,
+            kitty_file_transfer_denied: BTreeSet::new(),
             damage_event_in_flight: false,
             keyboard_mode_stack: Default::default(),
             keyboard_mode_idx: 0,
@@ -2539,6 +2542,64 @@ impl<U: EventListener> Crosswords<U> {
         }
     }
 
+    fn kitty_file_transfer_reply(
+        transfer: &KittyFileTransfer,
+        status: &str,
+        terminator: &str,
+    ) -> String {
+        let encoded_status = general_purpose::STANDARD.encode(status.as_bytes());
+        let mut reply = format!("\x1b]5113;ac=status;id={};", transfer.id);
+        if let Some(file_id) = &transfer.file_id {
+            reply.push_str(&format!("fid={file_id};"));
+        }
+        reply.push_str(&format!("st={encoded_status}{terminator}"));
+        reply
+    }
+
+    fn send_kitty_file_transfer_status(
+        &mut self,
+        transfer: &KittyFileTransfer,
+        status: &str,
+        terminator: &str,
+    ) {
+        let text = Self::kitty_file_transfer_reply(transfer, status, terminator);
+        self.event_proxy
+            .send_event(RioEvent::PtyWrite(self.route_id, text), self.window_id);
+    }
+
+    fn handle_kitty_file_transfer(
+        &mut self,
+        transfer: KittyFileTransfer,
+        terminator: &str,
+    ) {
+        // Security denials remain visible before a transfer session is approved.
+        match transfer.action {
+            KittyFileTransferAction::Send | KittyFileTransferAction::Receive => {
+                self.kitty_file_transfer_denied.insert(transfer.id.clone());
+                self.send_kitty_file_transfer_status(
+                    &transfer,
+                    "EPERM:Yazelix-terminal file transfer approval is not implemented",
+                    terminator,
+                );
+            }
+            KittyFileTransferAction::Cancel => {
+                self.kitty_file_transfer_denied.remove(&transfer.id);
+                self.send_kitty_file_transfer_status(&transfer, "CANCELED", terminator);
+            }
+            KittyFileTransferAction::File
+            | KittyFileTransferAction::Data
+            | KittyFileTransferAction::EndData
+            | KittyFileTransferAction::Status
+            | KittyFileTransferAction::Finish => {
+                self.send_kitty_file_transfer_status(
+                    &transfer,
+                    "EPERM:No approved file transfer session",
+                    terminator,
+                );
+            }
+        }
+    }
+
     fn deccolm(&mut self)
     where
         U: EventListener,
@@ -4018,6 +4079,11 @@ impl<U: EventListener> Handler for Crosswords<U> {
                 self.handle_kitty_clipboard_walias(clipboard, terminator)
             }
         }
+    }
+
+    #[inline]
+    fn kitty_file_transfer(&mut self, transfer: KittyFileTransfer, terminator: &str) {
+        self.handle_kitty_file_transfer(transfer, terminator);
     }
 
     #[inline]
@@ -7129,6 +7195,74 @@ mod tests {
         assert_eq!(
             replies,
             vec![(7, "\x1b]5522;type=write:status=ENOSYS\x1b\\".to_owned())]
+        );
+    }
+
+    #[test]
+    // Defends: OSC 5113 starts fail closed with EPERM and do not require any filesystem authority.
+    fn osc5113_file_transfer_start_replies_eperm_without_filesystem_access() {
+        let (mut term, events) = make_capturing_crosswords(7);
+
+        Handler::kitty_file_transfer(
+            &mut term,
+            KittyFileTransfer {
+                action: KittyFileTransferAction::Send,
+                id: "session-1".to_owned(),
+                file_id: None,
+                quiet: 2,
+            },
+            "\x1b\\",
+        );
+
+        let replies = events
+            .borrow()
+            .iter()
+            .filter_map(|event| match event {
+                RioEvent::PtyWrite(route_id, reply) => Some((*route_id, reply.clone())),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            replies,
+            vec![(
+                7,
+                "\x1b]5113;ac=status;id=session-1;st=RVBFUk06WWF6ZWxpeC10ZXJtaW5hbCBmaWxlIHRyYW5zZmVyIGFwcHJvdmFsIGlzIG5vdCBpbXBsZW1lbnRlZA==\x1b\\"
+                    .to_owned()
+            )]
+        );
+    }
+
+    #[test]
+    // Defends: out-of-order OSC 5113 file data is rejected with a file-scoped status reply.
+    fn osc5113_file_transfer_data_without_session_is_rejected() {
+        let (mut term, events) = make_capturing_crosswords(7);
+
+        Handler::kitty_file_transfer(
+            &mut term,
+            KittyFileTransfer {
+                action: KittyFileTransferAction::Data,
+                id: "session-1".to_owned(),
+                file_id: Some("file_1".to_owned()),
+                quiet: 0,
+            },
+            "\x1b\\",
+        );
+
+        let replies = events
+            .borrow()
+            .iter()
+            .filter_map(|event| match event {
+                RioEvent::PtyWrite(route_id, reply) => Some((*route_id, reply.clone())),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            replies,
+            vec![(
+                7,
+                "\x1b]5113;ac=status;id=session-1;fid=file_1;st=RVBFUk06Tm8gYXBwcm92ZWQgZmlsZSB0cmFuc2ZlciBzZXNzaW9u\x1b\\"
+                    .to_owned()
+            )]
         );
     }
 

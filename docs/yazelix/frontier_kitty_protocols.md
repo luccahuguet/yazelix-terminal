@@ -50,6 +50,8 @@ Already implemented or partially validated in Yazelix-terminal:
   rendering through the normal cursor atlas slots
 - Kitty DECCARA all-SGR rectangular styling, including the common DECSACE
   wrapper and RGB/indexed color SGR tails
+- Kitty file transfer OSC 5113 parser skeleton with deny-by-default `EPERM`
+  replies for send/receive starts and no filesystem authority
 
 Important gaps found during this audit:
 
@@ -65,6 +67,8 @@ Important gaps found during this audit:
   Kitty-frontier work rather than strict Ghostty parity.
 - Kitty file transfer and OSC 72 drag/drop are absent. Both cross a security and
   OS-integration boundary and should not be treated as parser-only work.
+- Kitty file transfer still needs approval UI, safe staging writes, safe local
+  reads, compression, and any trusted bypass mechanism before it becomes useful.
 
 ## Must
 
@@ -249,6 +253,18 @@ Recommended first step:
 Policy:
 
 - `docs/yazelix/kitty_file_transfer_policy.md`
+
+Result:
+
+- Implemented OSC 5113 key/value parsing for action, id, file_id, and quiet
+  fields
+- Implemented deny-by-default `EPERM` status replies for `send` and `receive`
+  starts while preserving a minimal denied-session registry
+- Implemented deterministic rejection for out-of-order file/data/status/finish
+  commands without touching the filesystem
+- Added parser/handler/grid tests and a conformance fixture
+- Remaining limitation: no approval UI, no filesystem reads/writes, no
+  compression, no symlink/link handling, and no trusted bypass support
 
 ### OSC 72 Drag And Drop
 

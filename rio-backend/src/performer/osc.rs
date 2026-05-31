@@ -16,9 +16,10 @@ use crate::event::{ProgressReport, ProgressState};
 use crate::simd_utf8;
 
 use super::handler::{
-    KittyClipboard, KittyClipboardLocation, KittyClipboardOperation, KittyNotification,
-    KittyNotificationKind, SemanticPrompt, SemanticPromptAction, SemanticPromptClick,
-    SemanticPromptKind, SemanticPromptRedraw, TextSizing, TextSizingAlign,
+    KittyClipboard, KittyClipboardLocation, KittyClipboardOperation, KittyFileTransfer,
+    KittyFileTransferAction, KittyNotification, KittyNotificationKind, SemanticPrompt,
+    SemanticPromptAction, SemanticPromptClick, SemanticPromptKind, SemanticPromptRedraw,
+    TextSizing, TextSizingAlign,
 };
 
 /// Either a concrete color value or a query for the current value.
@@ -724,6 +725,78 @@ pub(super) fn parse_kitty_clipboard<'a>(
     })
 }
 
+/// OSC 5113: Kitty file transfer command parser.
+pub(super) fn parse_kitty_file_transfer(params: &[&[u8]]) -> Option<KittyFileTransfer> {
+    let mut action = None;
+    let mut id = None;
+    let mut file_id = None;
+    let mut quiet = 0;
+
+    for param in params.get(1..)? {
+        let eq = param.iter().position(|b| *b == b'=')?;
+        let key = trim_ascii(&param[..eq]);
+        let value = trim_ascii(&param[eq + 1..]);
+        if !is_kitty_file_transfer_key(key) {
+            return None;
+        }
+
+        match key {
+            b"ac" | b"action" => action = Some(parse_kitty_file_transfer_action(value)?),
+            b"id" => id = Some(parse_kitty_file_transfer_safe_string(value)?),
+            b"fid" | b"file_id" => {
+                file_id = Some(parse_kitty_file_transfer_safe_string(value)?)
+            }
+            b"q" | b"quiet" => {
+                quiet = parse_number(value)?;
+                if quiet > 2 {
+                    return None;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Some(KittyFileTransfer {
+        action: action?,
+        id: id?,
+        file_id,
+        quiet,
+    })
+}
+
+fn parse_kitty_file_transfer_action(input: &[u8]) -> Option<KittyFileTransferAction> {
+    match input {
+        b"send" => Some(KittyFileTransferAction::Send),
+        b"file" => Some(KittyFileTransferAction::File),
+        b"data" => Some(KittyFileTransferAction::Data),
+        b"end_data" => Some(KittyFileTransferAction::EndData),
+        b"receive" => Some(KittyFileTransferAction::Receive),
+        b"cancel" => Some(KittyFileTransferAction::Cancel),
+        b"status" => Some(KittyFileTransferAction::Status),
+        b"finish" | b"finished" => Some(KittyFileTransferAction::Finish),
+        _ => None,
+    }
+}
+
+fn parse_kitty_file_transfer_safe_string(input: &[u8]) -> Option<String> {
+    if input.is_empty() || !input.iter().all(is_kitty_file_transfer_safe_byte) {
+        return None;
+    }
+    Some(simd_utf8::from_utf8_fast(input).ok()?.to_owned())
+}
+
+fn is_kitty_file_transfer_key(input: &[u8]) -> bool {
+    !input.is_empty()
+        && input
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || *b == b'_')
+}
+
+fn is_kitty_file_transfer_safe_byte(byte: &u8) -> bool {
+    byte.is_ascii_alphanumeric()
+        || matches!(*byte, b'_' | b':' | b'.' | b'/' | b'@' | b'-')
+}
+
 fn metadata_value<'a>(metadata: &'a [u8], key: &[u8]) -> Option<&'a [u8]> {
     for item in metadata.split(|b| *b == b':') {
         let item = trim_ascii(item);
@@ -951,6 +1024,38 @@ mod tests {
             b"66".as_slice(),
             b"n=2:d=1".as_slice(),
             b"x".as_slice(),
+        ])
+        .is_none());
+    }
+
+    #[test]
+    // Defends: OSC 5113 file-transfer commands parse only safe echoed identifiers and bounded quiet values.
+    fn kitty_file_transfer_parses_safe_command_metadata() {
+        let transfer = parse_kitty_file_transfer(&[
+            b"5113".as_slice(),
+            b"ac=send".as_slice(),
+            b"id=session-1".as_slice(),
+            b"fid=file_1".as_slice(),
+            b"q=2".as_slice(),
+            b"unknown=ignored".as_slice(),
+        ])
+        .unwrap();
+
+        assert_eq!(transfer.action, KittyFileTransferAction::Send);
+        assert_eq!(transfer.id, "session-1");
+        assert_eq!(transfer.file_id.as_deref(), Some("file_1"));
+        assert_eq!(transfer.quiet, 2);
+        assert!(parse_kitty_file_transfer(&[
+            b"5113".as_slice(),
+            b"ac=send".as_slice(),
+            b"id=bad;id".as_slice(),
+        ])
+        .is_none());
+        assert!(parse_kitty_file_transfer(&[
+            b"5113".as_slice(),
+            b"ac=send".as_slice(),
+            b"id=session-1".as_slice(),
+            b"q=3".as_slice(),
         ])
         .is_none());
     }
