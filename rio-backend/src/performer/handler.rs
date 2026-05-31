@@ -200,6 +200,7 @@ pub struct KittyNotification {
     pub id: Option<String>,
     pub kind: KittyNotificationKind,
     pub done: bool,
+    pub close_report: bool,
     pub payload: String,
 }
 

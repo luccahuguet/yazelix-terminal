@@ -514,6 +514,7 @@ pub(super) fn parse_kitty_notification(params: &[&[u8]]) -> Option<KittyNotifica
     let mut kind = KittyNotificationKind::Title;
     let mut done = true;
     let mut encoded = false;
+    let mut close_report = false;
 
     for item in params[1].split(|b| *b == b':') {
         if item.is_empty() {
@@ -526,8 +527,9 @@ pub(super) fn parse_kitty_notification(params: &[&[u8]]) -> Option<KittyNotifica
         let value = &item[eq_idx + 1..];
 
         match key {
-            b"i" => id = Some(simd_utf8::from_utf8_lossy_fast(value)),
+            b"i" => id = parse_notification_id(value),
             b"p" => kind = parse_kitty_notification_kind(value)?,
+            b"c" => close_report = parse_bool(value)?,
             b"d" => done = parse_bool(value)?,
             b"e" => encoded = parse_bool(value)?,
             _ => {}
@@ -544,6 +546,7 @@ pub(super) fn parse_kitty_notification(params: &[&[u8]]) -> Option<KittyNotifica
             id,
             kind,
             done,
+            close_report,
             payload: simd_utf8::from_utf8_lossy_fast(&bytes),
         })
     } else {
@@ -554,9 +557,18 @@ pub(super) fn parse_kitty_notification(params: &[&[u8]]) -> Option<KittyNotifica
             id,
             kind,
             done,
+            close_report,
             payload: simd_utf8::from_utf8_lossy_fast(&payload),
         })
     }
+}
+
+fn parse_notification_id(input: &[u8]) -> Option<String> {
+    (!input.is_empty()
+        && input
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'+' | b'.')))
+    .then(|| simd_utf8::from_utf8_lossy_fast(input))
 }
 
 fn parse_kitty_notification_kind(input: &[u8]) -> Option<KittyNotificationKind> {
@@ -890,7 +902,23 @@ mod tests {
         assert_eq!(notification.id.as_deref(), Some("build"));
         assert_eq!(notification.kind, KittyNotificationKind::Title);
         assert!(!notification.done);
+        assert!(!notification.close_report);
         assert_eq!(notification.payload, "Build");
+    }
+
+    #[test]
+    // Defends: OSC 99 IDs are sanitized before they can be echoed back in protocol replies.
+    fn kitty_notification_parses_close_report_and_rejects_bad_ids() {
+        let notification = parse_kitty_notification(&[
+            b"99".as_slice(),
+            b"i=bad;id:c=1:p=alive".as_slice(),
+            b"".as_slice(),
+        ])
+        .unwrap();
+
+        assert_eq!(notification.id, None);
+        assert!(notification.close_report);
+        assert_eq!(notification.kind, KittyNotificationKind::Alive);
     }
 
     #[test]

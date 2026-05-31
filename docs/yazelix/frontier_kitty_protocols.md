@@ -29,7 +29,8 @@ Already implemented or partially validated in Yazelix-terminal:
 - Kitty keyboard protocol mode stack and CSI-u emission paths
 - Sixel and iTerm2 inline image paths through the renderer
 - OSC 66 parser and cell-width behavior
-- OSC 99 first slice for notification parsing and display
+- OSC 99 notification parsing/display, support query replies, alive query
+  replies, and untracked close replies
 - OSC 133 semantic prompt regions, prompt navigation, and output selection
 - OSC 52 hardened clipboard policy
 - OSC 21 first slice for foreground, background, cursor, and ANSI palette
@@ -107,7 +108,6 @@ Scope:
 These already have beads and should stay ahead of new frontier features:
 
 - Render OSC 66 scale and fractional text visually
-- Complete OSC 99 lifecycle replies and activation behavior
 - Fix the WGPU Vulkan surface issue on this COSMIC/NVIDIA setup, or clearly
   scope GL as the supported validation renderer for now
 

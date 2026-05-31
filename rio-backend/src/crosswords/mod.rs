@@ -58,7 +58,7 @@ use pos::{
     Boundary, CharsetIndex, Column, Cursor, CursorState, Direction, Line, Pos, Side,
 };
 use square::{Hyperlink, LineLength, Square};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::mem;
 use std::ops::{Index, IndexMut, Range};
 use std::option::Option;
@@ -82,13 +82,15 @@ const OSC52_MAX_DECODED_BYTES: usize = 1024 * 1024;
 struct PendingKittyNotification {
     title: String,
     body: String,
+    close_report: bool,
 }
 
 impl PendingKittyNotification {
-    fn push(&mut self, kind: KittyNotificationKind, payload: &str) {
-        match kind {
-            KittyNotificationKind::Title => self.title.push_str(payload),
-            KittyNotificationKind::Body => self.body.push_str(payload),
+    fn push(&mut self, notification: &KittyNotification) {
+        self.close_report |= notification.close_report;
+        match notification.kind {
+            KittyNotificationKind::Title => self.title.push_str(&notification.payload),
+            KittyNotificationKind::Body => self.body.push_str(&notification.payload),
             _ => {}
         }
     }
@@ -489,6 +491,7 @@ where
     title_stack: Vec<String>,
     pub current_directory: Option<std::path::PathBuf>,
     kitty_notifications: HashMap<String, PendingKittyNotification>,
+    kitty_live_notifications: BTreeSet<String>,
 
     /// Whether a `TerminalDamaged` event is already in flight to the renderer.
     /// Set by PTY thread before sending; cleared by renderer after extracting damage.
@@ -552,6 +555,7 @@ impl<U: EventListener> Crosswords<U> {
             title_stack: Default::default(),
             current_directory: None,
             kitty_notifications: HashMap::new(),
+            kitty_live_notifications: BTreeSet::new(),
             damage_event_in_flight: false,
             keyboard_mode_stack: Default::default(),
             keyboard_mode_idx: 0,
@@ -1183,7 +1187,34 @@ impl<U: EventListener> Crosswords<U> {
         self.grid[row].has_extras = true;
     }
 
-    fn emit_kitty_notification(&mut self, pending: PendingKittyNotification) {
+    fn kitty_notification_response(&mut self, id: &str, kind: &str, payload: &str) {
+        self.event_proxy.send_event(
+            RioEvent::PtyWrite(
+                self.route_id,
+                format!("\x1b]99;i={id}:p={kind};{payload}\x1b\\"),
+            ),
+            self.window_id,
+        );
+    }
+
+    fn kitty_notification_support_reply(&mut self, id: &str) {
+        self.event_proxy.send_event(
+            RioEvent::PtyWrite(
+                self.route_id,
+                format!(
+                    "\x1b]99;i={id}:p=?;o=always:p=title,body,close,alive,?:s=system,silent\x1b\\"
+                ),
+            ),
+            self.window_id,
+        );
+    }
+
+    fn emit_kitty_notification(
+        &mut self,
+        id: Option<&str>,
+        pending: PendingKittyNotification,
+        close_report: bool,
+    ) {
         let title = if pending.title.is_empty() {
             pending.body.clone()
         } else {
@@ -1193,6 +1224,10 @@ impl<U: EventListener> Crosswords<U> {
             return;
         }
 
+        if let Some(id) = id {
+            self.kitty_live_notifications.insert(id.to_owned());
+        }
+
         self.event_proxy.send_event(
             RioEvent::DesktopNotification {
                 title,
@@ -1200,6 +1235,10 @@ impl<U: EventListener> Crosswords<U> {
             },
             self.window_id,
         );
+
+        if close_report {
+            self.kitty_notification_response(id.unwrap_or("0"), "close", "untracked");
+        }
     }
 
     #[inline]
@@ -3644,34 +3683,59 @@ impl<U: EventListener> Handler for Crosswords<U> {
     fn kitty_notification(&mut self, notification: KittyNotification) {
         match notification.kind {
             KittyNotificationKind::Close => {
-                if let Some(id) = notification.id {
-                    self.kitty_notifications.remove(&id);
+                if let Some(id) = &notification.id {
+                    self.kitty_notifications.remove(id);
+                    self.kitty_live_notifications.remove(id);
                 }
             }
             KittyNotificationKind::Title | KittyNotificationKind::Body => {
-                if let Some(id) = notification.id {
+                if let Some(id) = &notification.id {
                     let display = {
                         let pending =
                             self.kitty_notifications.entry(id.clone()).or_default();
-                        pending.push(notification.kind, &notification.payload);
+                        pending.push(&notification);
                         notification
                             .done
-                            .then(|| self.kitty_notifications.remove(&id))
+                            .then(|| self.kitty_notifications.remove(id))
                             .flatten()
                     };
                     if let Some(pending) = display {
-                        self.emit_kitty_notification(pending);
+                        let close_report = pending.close_report;
+                        self.emit_kitty_notification(
+                            Some(id.as_str()),
+                            pending,
+                            close_report,
+                        );
                     }
                 } else if notification.done {
                     let mut pending = PendingKittyNotification::default();
-                    pending.push(notification.kind, &notification.payload);
-                    self.emit_kitty_notification(pending);
+                    pending.push(&notification);
+                    self.emit_kitty_notification(
+                        None,
+                        pending,
+                        notification.close_report,
+                    );
                 }
             }
-            KittyNotificationKind::Alive
-            | KittyNotificationKind::Query
-            | KittyNotificationKind::Buttons
-            | KittyNotificationKind::Icon => {}
+            KittyNotificationKind::Alive => {
+                let ids = self
+                    .kitty_live_notifications
+                    .iter()
+                    .map(String::as_str)
+                    .collect::<Vec<_>>()
+                    .join(",");
+                self.kitty_notification_response(
+                    notification.id.as_deref().unwrap_or("0"),
+                    "alive",
+                    &ids,
+                );
+            }
+            KittyNotificationKind::Query => {
+                self.kitty_notification_support_reply(
+                    notification.id.as_deref().unwrap_or("0"),
+                );
+            }
+            KittyNotificationKind::Buttons | KittyNotificationKind::Icon => {}
         }
     }
 
@@ -5068,11 +5132,46 @@ mod tests {
     use crate::crosswords::pos::{Column, Line, Pos, Side};
     use crate::crosswords::CrosswordsSize;
     use crate::event::VoidListener;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    #[derive(Clone)]
+    struct EventCaptureListener {
+        events: Rc<RefCell<Vec<RioEvent>>>,
+    }
+
+    impl EventListener for EventCaptureListener {
+        fn event(&self) -> (Option<RioEvent>, bool) {
+            (None, false)
+        }
+
+        fn send_event(&self, event: RioEvent, _id: WindowId) {
+            self.events.borrow_mut().push(event);
+        }
+    }
 
     fn make_crosswords() -> Crosswords<VoidListener> {
         let size = CrosswordsSize::new(4, 4);
         let window_id = crate::event::WindowId::from(0);
         Crosswords::new(size, CursorShape::Block, VoidListener {}, window_id, 0, 10)
+    }
+
+    fn make_capturing_crosswords(
+        route_id: usize,
+    ) -> (Crosswords<EventCaptureListener>, Rc<RefCell<Vec<RioEvent>>>) {
+        let events = Rc::new(RefCell::new(Vec::new()));
+        let size = CrosswordsSize::new(4, 4);
+        let term = Crosswords::new(
+            size,
+            CursorShape::Block,
+            EventCaptureListener {
+                events: events.clone(),
+            },
+            WindowId::from(0),
+            route_id,
+            10,
+        );
+        (term, events)
     }
 
     #[test]
@@ -5110,32 +5209,7 @@ mod tests {
     #[test]
     // Defends: OSC 22 current/support queries reply to the originating PTY with Kitty response syntax.
     fn mouse_cursor_queries_emit_pty_replies() {
-        use std::cell::RefCell;
-        use std::rc::Rc;
-
-        #[derive(Clone)]
-        struct TestListener {
-            events: Rc<RefCell<Vec<RioEvent>>>,
-        }
-
-        impl EventListener for TestListener {
-            fn event(&self) -> (Option<RioEvent>, bool) {
-                (None, false)
-            }
-
-            fn send_event(&self, event: RioEvent, _id: WindowId) {
-                self.events.borrow_mut().push(event);
-            }
-        }
-
-        let events = Rc::new(RefCell::new(Vec::new()));
-        let listener = TestListener {
-            events: events.clone(),
-        };
-        let size = CrosswordsSize::new(4, 4);
-        let window_id = crate::event::WindowId::from(0);
-        let mut term =
-            Crosswords::new(size, CursorShape::Block, listener, window_id, 7, 10);
+        let (mut term, events) = make_capturing_crosswords(7);
 
         Handler::set_mouse_cursor_icon(&mut term, Some(CursorIcon::Crosshair));
         Handler::query_mouse_cursor_icons(
@@ -5288,31 +5362,7 @@ mod tests {
     #[test]
     // Defends: chunked Kitty OSC 99 title/body payloads are emitted through Rio's desktop notification event.
     fn kitty_notification_chunks_emit_desktop_notification() {
-        use std::cell::RefCell;
-        use std::rc::Rc;
-
-        #[derive(Clone)]
-        struct TestListener {
-            events: Rc<RefCell<Vec<RioEvent>>>,
-        }
-
-        impl EventListener for TestListener {
-            fn event(&self) -> (Option<RioEvent>, bool) {
-                (None, false)
-            }
-
-            fn send_event(&self, event: RioEvent, _id: WindowId) {
-                self.events.borrow_mut().push(event);
-            }
-        }
-
-        let events = Rc::new(RefCell::new(Vec::new()));
-        let listener = TestListener {
-            events: events.clone(),
-        };
-        let size = CrosswordsSize::new(4, 4);
-        let mut term =
-            Crosswords::new(size, CursorShape::Block, listener, WindowId::from(0), 0, 10);
+        let (mut term, events) = make_capturing_crosswords(0);
 
         Handler::kitty_notification(
             &mut term,
@@ -5320,6 +5370,7 @@ mod tests {
                 id: Some("build".to_string()),
                 kind: KittyNotificationKind::Title,
                 done: false,
+                close_report: false,
                 payload: "Build".to_string(),
             },
         );
@@ -5329,6 +5380,7 @@ mod tests {
                 id: Some("build".to_string()),
                 kind: KittyNotificationKind::Body,
                 done: true,
+                close_report: false,
                 payload: "Done".to_string(),
             },
         );
@@ -5340,6 +5392,114 @@ mod tests {
             RioEvent::DesktopNotification { title, body }
                 if title == "Build" && body == "Done"
         ));
+    }
+
+    #[test]
+    // Defends: OSC 99 support and alive queries reply to the originating PTY with tracked notification IDs.
+    fn kitty_notification_support_and_alive_queries_emit_pty_replies() {
+        let (mut term, events) = make_capturing_crosswords(7);
+
+        Handler::kitty_notification(
+            &mut term,
+            KittyNotification {
+                id: Some("mux".to_string()),
+                kind: KittyNotificationKind::Query,
+                done: true,
+                close_report: false,
+                payload: String::new(),
+            },
+        );
+        Handler::kitty_notification(
+            &mut term,
+            KittyNotification {
+                id: Some("build".to_string()),
+                kind: KittyNotificationKind::Title,
+                done: true,
+                close_report: false,
+                payload: "Done".to_string(),
+            },
+        );
+        Handler::kitty_notification(
+            &mut term,
+            KittyNotification {
+                id: Some("mux".to_string()),
+                kind: KittyNotificationKind::Alive,
+                done: true,
+                close_report: false,
+                payload: String::new(),
+            },
+        );
+        Handler::kitty_notification(
+            &mut term,
+            KittyNotification {
+                id: Some("build".to_string()),
+                kind: KittyNotificationKind::Close,
+                done: true,
+                close_report: false,
+                payload: String::new(),
+            },
+        );
+        Handler::kitty_notification(
+            &mut term,
+            KittyNotification {
+                id: Some("mux".to_string()),
+                kind: KittyNotificationKind::Alive,
+                done: true,
+                close_report: false,
+                payload: String::new(),
+            },
+        );
+
+        let replies = events
+            .borrow()
+            .iter()
+            .filter_map(|event| match event {
+                RioEvent::PtyWrite(route_id, reply) => Some((*route_id, reply.clone())),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            replies,
+            vec![
+                (
+                    7,
+                    "\x1b]99;i=mux:p=?;o=always:p=title,body,close,alive,?:s=system,silent\x1b\\"
+                        .to_string()
+                ),
+                (7, "\x1b]99;i=mux:p=alive;build\x1b\\".to_string()),
+                (7, "\x1b]99;i=mux:p=alive;\x1b\\".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    // Defends: OSC 99 c=1 gets an explicit untracked close reply when Rio cannot observe OS close events.
+    fn kitty_notification_close_report_replies_untracked() {
+        let (mut term, events) = make_capturing_crosswords(7);
+
+        Handler::kitty_notification(
+            &mut term,
+            KittyNotification {
+                id: Some("job".to_string()),
+                kind: KittyNotificationKind::Title,
+                done: true,
+                close_report: true,
+                payload: "Done".to_string(),
+            },
+        );
+
+        let replies = events
+            .borrow()
+            .iter()
+            .filter_map(|event| match event {
+                RioEvent::PtyWrite(route_id, reply) => Some((*route_id, reply.clone())),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            replies,
+            vec![(7, "\x1b]99;i=job:p=close;untracked\x1b\\".to_string())]
+        );
     }
 
     #[test]
