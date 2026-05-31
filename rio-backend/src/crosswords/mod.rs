@@ -114,6 +114,33 @@ struct KittyClipboardWriteState {
     errored: bool,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct TextSizingBlock {
+    anchor: Pos,
+    bottom: Line,
+    right: Column,
+}
+
+impl TextSizingBlock {
+    #[inline]
+    fn intersects(self, top: Line, bottom: Line, left: Column, right: Column) -> bool {
+        self.anchor.row < bottom
+            && self.bottom > top
+            && self.anchor.col < right
+            && self.right > left
+    }
+
+    #[inline]
+    fn contains(self, pos: Pos) -> bool {
+        self.intersects(pos.row, pos.row + 1, pos.col, pos.col + 1)
+    }
+
+    #[inline]
+    fn is_multiline(self) -> bool {
+        self.bottom > self.anchor.row + 1
+    }
+}
+
 bitflags! {
      #[derive(Debug, Copy, Clone)]
      pub struct Mode: u32 {
@@ -1156,6 +1183,223 @@ impl<U: EventListener> Crosswords<U> {
         (scaled_width > 0).then_some(scaled_width)
     }
 
+    fn text_sizing_block_at_anchor(&self, anchor: Pos) -> Option<TextSizingBlock> {
+        if anchor.row < Line(0)
+            || anchor.row >= self.grid.screen_lines()
+            || anchor.col >= self.grid.columns()
+        {
+            return None;
+        }
+
+        let cell = self.grid[anchor.row][anchor.col];
+        if !cell.has_text_sizing() {
+            return None;
+        }
+
+        let sizing = self
+            .grid
+            .extras_table
+            .get(cell.extras_id()?)?
+            .text_sizing
+            .as_ref()?;
+        let width = usize::from(sizing.occupied_width).max(1);
+        let height = usize::from(sizing.scale.max(1));
+        let max_width = self.grid.columns().saturating_sub(anchor.col.0);
+        let max_height = self
+            .grid
+            .screen_lines()
+            .saturating_sub(anchor.row.0 as usize);
+
+        Some(TextSizingBlock {
+            anchor,
+            bottom: anchor.row + height.min(max_height),
+            right: anchor.col + width.min(max_width),
+        })
+    }
+
+    fn text_sizing_blocks_intersecting(
+        &self,
+        top: Line,
+        bottom: Line,
+        left: Column,
+        right: Column,
+    ) -> Vec<TextSizingBlock> {
+        if top >= bottom || left >= right {
+            return Vec::new();
+        }
+
+        let top = std::cmp::max(top, Line(0));
+        let bottom = std::cmp::min(bottom, Line(self.grid.screen_lines() as i32));
+        let right = std::cmp::min(right, Column(self.grid.columns()));
+        if top >= bottom || left >= right {
+            return Vec::new();
+        }
+
+        let mut blocks = Vec::new();
+        for row in 0..self.grid.screen_lines() {
+            let line = Line(row as i32);
+            if !self.grid[line].has_extras {
+                continue;
+            }
+
+            for col in 0..self.grid.columns() {
+                let Some(block) =
+                    self.text_sizing_block_at_anchor(Pos::new(line, Column(col)))
+                else {
+                    continue;
+                };
+                if block.intersects(top, bottom, left, right) {
+                    blocks.push(block);
+                }
+            }
+        }
+
+        blocks
+    }
+
+    fn text_sizing_block_containing(&self, pos: Pos) -> Option<TextSizingBlock> {
+        self.text_sizing_blocks_intersecting(pos.row, pos.row + 1, pos.col, pos.col + 1)
+            .into_iter()
+            .find(|block| block.contains(pos))
+    }
+
+    fn erase_text_sizing_blocks(&mut self, blocks: Vec<TextSizingBlock>) {
+        if blocks.is_empty() {
+            return;
+        }
+
+        let bg = self.grid.style_of(&self.grid.cursor.template).bg;
+        let blank = self.grid.blank_with_bg(bg);
+        for block in blocks {
+            for row in block.anchor.row.0..block.bottom.0 {
+                let line = Line(row);
+                self.damage.damage_line(row as usize);
+                let row = &mut self.grid[line];
+                for col in block.anchor.col.0..block.right.0 {
+                    row[Column(col)] = blank;
+                }
+            }
+        }
+    }
+
+    fn erase_text_sizing_blocks_intersecting(
+        &mut self,
+        top: Line,
+        bottom: Line,
+        left: Column,
+        right: Column,
+    ) {
+        let blocks = self.text_sizing_blocks_intersecting(top, bottom, left, right);
+        self.erase_text_sizing_blocks(blocks);
+    }
+
+    fn erase_text_sizing_blocks_for_horizontal_edit(
+        &mut self,
+        line: Line,
+        start: Column,
+        width: usize,
+        clip_right: bool,
+    ) {
+        if width == 0 {
+            return;
+        }
+
+        let edit_right = std::cmp::min(start + width, Column(self.grid.columns()));
+        let blocks = self
+            .text_sizing_blocks_intersecting(
+                line,
+                line + 1,
+                start,
+                Column(self.grid.columns()),
+            )
+            .into_iter()
+            .filter(|block| {
+                block.is_multiline()
+                    || block.intersects(line, line + 1, start, edit_right)
+                    || (clip_right
+                        && block.right.0.saturating_add(width) > self.grid.columns())
+            })
+            .collect();
+        self.erase_text_sizing_blocks(blocks);
+    }
+
+    fn erase_text_sizing_blocks_for_insert_lines(&mut self, origin: Line, lines: usize) {
+        if lines == 0 {
+            return;
+        }
+
+        let removed_start = self.scroll_region.end - lines;
+        let blocks = self
+            .text_sizing_blocks_intersecting(
+                Line(0),
+                Line(self.grid.screen_lines() as i32),
+                Column(0),
+                Column(self.grid.columns()),
+            )
+            .into_iter()
+            .filter(|block| {
+                if !block.is_multiline() {
+                    return false;
+                }
+                let split_at_origin = block.anchor.row < origin && block.bottom > origin;
+                let split_at_bottom = block.anchor.row < self.scroll_region.end
+                    && block.bottom > removed_start;
+                split_at_origin || split_at_bottom
+            })
+            .collect();
+        self.erase_text_sizing_blocks(blocks);
+    }
+
+    fn skip_lower_text_sizing_cell_at_cursor(&mut self) {
+        for _ in 0..self.grid.columns() {
+            let pos = self.grid.cursor.pos;
+            let Some(block) = self.text_sizing_block_containing(pos) else {
+                return;
+            };
+            if pos.row == block.anchor.row {
+                return;
+            }
+
+            self.damage.damage_line(pos.row.0 as usize);
+            if block.right < self.grid.columns() {
+                self.grid.cursor.pos.col = block.right;
+            } else {
+                self.linefeed();
+                self.grid.cursor.pos.col = Column(0);
+            }
+            self.grid.cursor.should_wrap = false;
+        }
+    }
+
+    fn prepare_text_sizing_write_at_cursor(&mut self) {
+        self.skip_lower_text_sizing_cell_at_cursor();
+        let pos = self.grid.cursor.pos;
+        self.erase_text_sizing_blocks_intersecting(
+            pos.row,
+            pos.row + 1,
+            pos.col,
+            pos.col + 1,
+        );
+    }
+
+    fn position_cursor_for_text_sizing_block(&mut self, width: usize) {
+        if width > self.grid.columns() {
+            return;
+        }
+
+        let col = self.grid.cursor.pos.col.0;
+        if col + width <= self.grid.columns() {
+            return;
+        }
+
+        if self.mode.contains(Mode::LINE_WRAP) {
+            self.wrapline();
+        } else {
+            self.grid.cursor.pos.col = Column(self.grid.columns() - width);
+            self.grid.cursor.should_wrap = false;
+        }
+    }
+
     fn input_text_sized_to_width(&mut self, text: &str, width: usize) {
         if width == 0 {
             return;
@@ -1464,6 +1708,8 @@ impl<U: EventListener> Crosswords<U> {
 
     #[inline(always)]
     pub fn write_at_cursor(&mut self, c: char) {
+        self.prepare_text_sizing_write_at_cursor();
+
         let c = self.grid.cursor.charsets[self.active_charset].map(c);
         let style_id = self.grid.cursor.template.style_id();
         let template_extras_id = self.grid.cursor.template.extras_id();
@@ -3269,6 +3515,12 @@ impl<U: EventListener> Handler for Crosswords<U> {
         let lines = std::cmp::min(self.grid.screen_lines() - origin.0 as usize, lines);
 
         if lines > 0 && self.scroll_region.contains(&origin) {
+            self.erase_text_sizing_blocks_intersecting(
+                origin,
+                origin + lines,
+                Column(0),
+                Column(self.grid.columns()),
+            );
             self.scroll_up_relative(origin, lines);
         }
     }
@@ -3302,11 +3554,13 @@ impl<U: EventListener> Handler for Crosswords<U> {
     fn erase_chars(&mut self, count: Column) {
         let start = self.grid.cursor.pos.col;
         let end = std::cmp::min(start + count, Column(self.grid.columns()));
+        let line = self.grid.cursor.pos.row;
+
+        self.erase_text_sizing_blocks_intersecting(line, line + 1, start, end);
 
         // Cleared cells have current background color set.
         let bg = self.grid.style_of(&self.grid.cursor.template).bg;
         let blank = self.grid.blank_with_bg(bg);
-        let line = self.grid.cursor.pos.row;
         self.damage.damage_line(line.0 as usize);
         let row = &mut self.grid[line];
         for cell in &mut row[start..end] {
@@ -3327,10 +3581,17 @@ impl<U: EventListener> Handler for Crosswords<U> {
         let count = std::cmp::min(count, columns);
 
         let start = self.grid.cursor.pos.col.0;
+        let line = self.grid.cursor.pos.row;
+        self.erase_text_sizing_blocks_for_horizontal_edit(
+            line,
+            Column(start),
+            count,
+            false,
+        );
+
         let end = std::cmp::min(start + count, columns - 1);
         let num_cells = columns - end;
 
-        let line = self.grid.cursor.pos.row;
         self.damage.damage_line(line.0 as usize);
         let row = &mut self.grid[line][..];
 
@@ -3391,6 +3652,13 @@ impl<U: EventListener> Handler for Crosswords<U> {
     fn insert_blank_lines(&mut self, lines: usize) {
         let origin = self.grid.cursor.pos.row;
         if self.scroll_region.contains(&origin) {
+            let lines = std::cmp::min(
+                lines,
+                (self.scroll_region.end - self.scroll_region.start).0 as usize,
+            );
+            let lines =
+                std::cmp::min(lines, (self.scroll_region.end - origin).0 as usize);
+            self.erase_text_sizing_blocks_for_insert_lines(origin, lines);
             self.scroll_down_relative(origin, lines);
         }
     }
@@ -3405,10 +3673,12 @@ impl<U: EventListener> Handler for Crosswords<U> {
             std::cmp::min(count, self.grid.columns() - self.grid.cursor.pos.col.0);
 
         let source = self.grid.cursor.pos.col;
+        let line = self.grid.cursor.pos.row;
+        self.erase_text_sizing_blocks_for_horizontal_edit(line, source, count, true);
+
         let destination = self.grid.cursor.pos.col.0 + count;
         let num_cells = self.grid.columns() - destination;
 
-        let line = self.grid.cursor.pos.row;
         self.damage.damage_line(line.0 as usize);
 
         let row = &mut self.grid[line][..];
@@ -3957,6 +4227,17 @@ impl<U: EventListener> Handler for Crosswords<U> {
         let Some(width) = self.text_sizing_width(&sizing) else {
             return;
         };
+        if width > self.grid.columns()
+            || usize::from(sizing.scale.max(1)) > self.grid.screen_lines()
+        {
+            return;
+        }
+
+        self.skip_lower_text_sizing_cell_at_cursor();
+        self.position_cursor_for_text_sizing_block(width);
+        self.skip_lower_text_sizing_cell_at_cursor();
+        self.position_cursor_for_text_sizing_block(width);
+
         let anchor = self.grid.cursor.pos;
         self.input_text_sized_to_width(&sizing.text, width);
         self.set_text_sizing_anchor(anchor, sizing, width);
@@ -4091,6 +4372,20 @@ impl<U: EventListener> Handler for Crosswords<U> {
         match mode {
             ClearMode::Above => {
                 let cursor = self.grid.cursor.pos;
+                if cursor.row > Line(0) {
+                    self.erase_text_sizing_blocks_intersecting(
+                        Line(0),
+                        cursor.row,
+                        Column(0),
+                        Column(self.grid.columns()),
+                    );
+                }
+                self.erase_text_sizing_blocks_intersecting(
+                    cursor.row,
+                    cursor.row + 1,
+                    Column(0),
+                    std::cmp::min(cursor.col + 1, Column(self.grid.columns())),
+                );
 
                 // If clearing more than one line.
                 if cursor.row > 1 {
@@ -4110,6 +4405,20 @@ impl<U: EventListener> Handler for Crosswords<U> {
             }
             ClearMode::Below => {
                 let cursor = self.grid.cursor.pos;
+                self.erase_text_sizing_blocks_intersecting(
+                    cursor.row,
+                    cursor.row + 1,
+                    cursor.col,
+                    Column(self.grid.columns()),
+                );
+                if (cursor.row.0 as usize) < screen_lines - 1 {
+                    self.erase_text_sizing_blocks_intersecting(
+                        cursor.row + 1,
+                        Line(screen_lines as i32),
+                        Column(0),
+                        Column(self.grid.columns()),
+                    );
+                }
                 for cell in &mut self.grid[cursor.row][cursor.col..] {
                     *cell = blank;
                 }
@@ -4123,6 +4432,12 @@ impl<U: EventListener> Handler for Crosswords<U> {
                     self.selection.take().filter(|s| !s.intersects_range(range));
             }
             ClearMode::All => {
+                self.erase_text_sizing_blocks_intersecting(
+                    Line(0),
+                    Line(screen_lines as i32),
+                    Column(0),
+                    Column(self.grid.columns()),
+                );
                 if self.mode.contains(Mode::ALT_SCREEN) {
                     self.grid.reset_region(..);
                 } else {
@@ -4482,6 +4797,7 @@ impl<U: EventListener> Handler for Crosswords<U> {
             LineClearMode::All => (Column(0), Column(self.grid.columns())),
         };
 
+        self.erase_text_sizing_blocks_intersecting(point.row, point.row + 1, left, right);
         self.damage.damage_line(point.row.0 as usize);
 
         let row = &mut self.grid[point.row];
@@ -5795,6 +6111,25 @@ mod tests {
         (term, events)
     }
 
+    fn cell_has_text_sizing<U: EventListener>(
+        term: &Crosswords<U>,
+        row: usize,
+        col: usize,
+    ) -> bool {
+        term.grid[Line(row as i32)][Column(col)].has_text_sizing()
+    }
+
+    fn assert_no_text_sizing_blocks<U: EventListener>(term: &Crosswords<U>) {
+        for row in 0..term.grid.screen_lines() {
+            for col in 0..term.grid.columns() {
+                assert!(
+                    !cell_has_text_sizing(term, row, col),
+                    "unexpected text-sizing anchor at {row}:{col}"
+                );
+            }
+        }
+    }
+
     fn params(groups: &[&[u16]]) -> Params {
         let mut params = Params::default();
         for group in groups {
@@ -6202,6 +6537,102 @@ mod tests {
         assert_eq!(text_sizing.fractional_scale, Some((1, 2)));
         assert_eq!(text_sizing.horizontal_align, TextSizingAlignment::Center);
         assert_eq!(text_sizing.vertical_align, TextSizingAlignment::End);
+    }
+
+    #[test]
+    // Defends: overwriting the top row of an OSC 66 multicell character erases the whole block.
+    fn text_sizing_top_row_overwrite_erases_entire_block() {
+        let mut term = make_crosswords();
+        let mut sizing = TextSizing::new("x".to_string());
+        sizing.scale = 2;
+
+        Handler::input_sized_text(&mut term, sizing);
+
+        assert!(cell_has_text_sizing(&term, 0, 0));
+        term.goto(Line(0), Column(1));
+        term.input('z');
+
+        assert_no_text_sizing_blocks(&term);
+        assert_eq!(term.grid[Line(0)][Column(1)].c(), 'z');
+        assert_eq!(term.grid[Line(1)][Column(0)].c(), '\0');
+    }
+
+    #[test]
+    // Defends: lower-row overwrites skip past OSC 66 multicell characters instead of erasing them.
+    fn text_sizing_lower_row_overwrite_skips_block() {
+        let mut term = make_crosswords();
+        let mut sizing = TextSizing::new("x".to_string());
+        sizing.scale = 2;
+
+        Handler::input_sized_text(&mut term, sizing);
+
+        term.goto(Line(1), Column(0));
+        term.input('z');
+
+        assert!(cell_has_text_sizing(&term, 0, 0));
+        assert_eq!(term.grid[Line(1)][Column(0)].c(), '\0');
+        assert_eq!(term.grid[Line(1)][Column(2)].c(), 'z');
+    }
+
+    #[test]
+    // Defends: ECH clears the entire OSC 66 multicell character when its erased cells intersect the block.
+    fn text_sizing_erase_chars_clears_intersecting_block() {
+        let mut term = make_crosswords();
+        let mut sizing = TextSizing::new("x".to_string());
+        sizing.scale = 2;
+
+        Handler::input_sized_text(&mut term, sizing);
+
+        term.goto(Line(1), Column(0));
+        term.erase_chars(Column(1));
+
+        assert_no_text_sizing_blocks(&term);
+    }
+
+    #[test]
+    // Defends: ICH clears multi-line OSC 66 blocks that would be split by horizontal row editing.
+    fn text_sizing_insert_blank_clears_split_multiline_block() {
+        let mut term = make_crosswords();
+        let mut sizing = TextSizing::new("x".to_string());
+        sizing.scale = 2;
+
+        Handler::input_sized_text(&mut term, sizing);
+
+        term.goto(Line(1), Column(0));
+        term.insert_blank(1);
+
+        assert_no_text_sizing_blocks(&term);
+    }
+
+    #[test]
+    // Defends: ICH clears single-line OSC 66 blocks that would be clipped by the right edge.
+    fn text_sizing_insert_blank_clears_clipped_single_line_block() {
+        let mut term = make_crosswords();
+        let mut sizing = TextSizing::new("x".to_string());
+        sizing.width = Some(2);
+
+        term.goto(Line(0), Column(2));
+        Handler::input_sized_text(&mut term, sizing);
+
+        term.goto(Line(0), Column(0));
+        term.insert_blank(1);
+
+        assert_no_text_sizing_blocks(&term);
+    }
+
+    #[test]
+    // Defends: DL clears OSC 66 blocks that intersect deleted lines before rows are shifted.
+    fn text_sizing_delete_lines_clears_intersecting_block() {
+        let mut term = make_crosswords();
+        let mut sizing = TextSizing::new("x".to_string());
+        sizing.scale = 2;
+
+        Handler::input_sized_text(&mut term, sizing);
+
+        term.goto(Line(1), Column(0));
+        term.delete_lines(1);
+
+        assert_no_text_sizing_blocks(&term);
     }
 
     #[test]
