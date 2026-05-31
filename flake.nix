@@ -32,16 +32,23 @@
         };
         unwrappedPackageFor = rust-toolchain:
           pkgs.callPackage ./pkgRioUnwrapped.nix {inherit rust-toolchain;};
+        uncheckedUnwrappedPackageFor = rust-toolchain:
+          pkgs.callPackage ./pkgRioUnwrapped.nix {
+            inherit rust-toolchain;
+            doCheck = false;
+          };
         packageFor = unwrapped:
           pkgs.callPackage ./pkgRio.nix {inherit unwrapped;};
         defaultUnwrappedPackage = unwrappedPackageFor toolchains.default;
         msrvUnwrappedPackage = unwrappedPackageFor toolchains.msrv;
         stableUnwrappedPackage = unwrappedPackageFor toolchains.stable;
         nightlyUnwrappedPackage = unwrappedPackageFor toolchains.nightly;
+        fastUnwrappedPackage = uncheckedUnwrappedPackageFor toolchains.default;
         defaultPackage = packageFor defaultUnwrappedPackage;
         msrvPackage = packageFor msrvUnwrappedPackage;
         stablePackage = packageFor stableUnwrappedPackage;
         nightlyPackage = packageFor nightlyUnwrappedPackage;
+        fastPackage = packageFor fastUnwrappedPackage;
         appFor = package: {
           type = "app";
           program = "${package}/bin/yazelix-terminal";
@@ -70,15 +77,21 @@
         overlayAttrs = {
           yazelix-terminal = self'.packages."yazelix-terminal";
           yazelix-terminal-unwrapped = self'.packages."yazelix-terminal-unwrapped";
+          yazelix-terminal-fast = self'.packages."yazelix-terminal-fast";
           rio = self'.packages."yazelix-terminal";
           rio-unwrapped = self'.packages."yazelix-terminal-unwrapped";
+          rio-fast = self'.packages."yazelix-terminal-fast";
         };
         packages = {
           default = defaultPackage;
           yazelix-terminal = defaultPackage;
           yazelix-terminal-unwrapped = defaultUnwrappedPackage;
+          yazelix-terminal-fast = fastPackage;
+          yazelix-terminal-fast-unwrapped = fastUnwrappedPackage;
           rio = defaultPackage;
           rio-unwrapped = defaultUnwrappedPackage;
+          rio-fast = fastPackage;
+          rio-fast-unwrapped = fastUnwrappedPackage;
           yazelix-terminal-msrv = msrvPackage;
           yazelix-terminal-msrv-unwrapped = msrvUnwrappedPackage;
           yazelix-terminal-stable = stablePackage;
@@ -95,7 +108,9 @@
         apps = {
           default = appFor self'.packages."yazelix-terminal";
           yazelix-terminal = appFor self'.packages."yazelix-terminal";
+          yazelix-terminal-fast = appFor self'.packages."yazelix-terminal-fast";
           rio = appFor self'.packages.rio;
+          rio-fast = appFor self'.packages."rio-fast";
         };
         checks = {
           package = self'.packages."yazelix-terminal";
