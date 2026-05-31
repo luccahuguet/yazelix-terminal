@@ -2375,7 +2375,11 @@ mod tests {
                     Some(NamedColor::Foreground as usize),
                     "\x07".to_owned()
                 ),
-                ("selection_background".to_owned(), None, "\x07".to_owned())
+                (
+                    "selection_background".to_owned(),
+                    Some(NamedColor::SelectionBackground as usize),
+                    "\x07".to_owned()
+                )
             ]
         );
     }

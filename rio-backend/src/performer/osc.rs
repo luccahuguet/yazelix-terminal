@@ -279,6 +279,11 @@ fn kitty_color_index(key: &str) -> Option<usize> {
         "foreground" => Some(NamedColor::Foreground as usize),
         "background" => Some(NamedColor::Background as usize),
         "cursor" => Some(NamedColor::Cursor as usize),
+        "cursor_text" => Some(NamedColor::CursorText as usize),
+        "selection_foreground" => Some(NamedColor::SelectionForeground as usize),
+        "selection_background" => Some(NamedColor::SelectionBackground as usize),
+        "visual_bell" => Some(NamedColor::VisualBell as usize),
+        "transparent_background" => Some(NamedColor::TransparentBackground as usize),
         _ => key.parse::<u8>().ok().map(usize::from),
     }
 }
@@ -738,6 +743,7 @@ mod tests {
             b"cursor=aliceblue".as_slice(),
             b"cursor_text".as_slice(),
             b"visual_bell=".as_slice(),
+            b"transparent_background=?".as_slice(),
             b"selection_foreground=#xxxyyzz".as_slice(),
             b"selection_background=?".as_slice(),
             b"2=?".as_slice(),
@@ -745,7 +751,7 @@ mod tests {
         ])
         .unwrap();
 
-        assert_eq!(entries.len(), 8);
+        assert_eq!(entries.len(), 9);
         assert!(matches!(entries[0].spec, KittyColorSpec::Query));
         assert_eq!(entries[0].index, Some(NamedColor::Foreground as usize));
         assert!(matches!(
@@ -768,24 +774,32 @@ mod tests {
         assert_eq!(entries[2].index, Some(NamedColor::Cursor as usize));
         assert!(matches!(entries[3].spec, KittyColorSpec::Reset));
         assert_eq!(entries[3].key, "cursor_text");
-        assert_eq!(entries[3].index, None);
+        assert_eq!(entries[3].index, Some(NamedColor::CursorText as usize));
         assert!(matches!(entries[4].spec, KittyColorSpec::Reset));
         assert_eq!(entries[4].key, "visual_bell");
-        assert_eq!(entries[4].index, None);
+        assert_eq!(entries[4].index, Some(NamedColor::VisualBell as usize));
         assert!(matches!(entries[5].spec, KittyColorSpec::Query));
-        assert_eq!(entries[5].key, "selection_background");
-        assert_eq!(entries[5].index, None);
+        assert_eq!(
+            entries[5].index,
+            Some(NamedColor::TransparentBackground as usize)
+        );
         assert!(matches!(entries[6].spec, KittyColorSpec::Query));
-        assert_eq!(entries[6].index, Some(2));
+        assert_eq!(entries[6].key, "selection_background");
+        assert_eq!(
+            entries[6].index,
+            Some(NamedColor::SelectionBackground as usize)
+        );
+        assert!(matches!(entries[7].spec, KittyColorSpec::Query));
+        assert_eq!(entries[7].index, Some(2));
         assert!(matches!(
-            entries[7].spec,
+            entries[8].spec,
             KittyColorSpec::Set(ColorRgb {
                 r: 255,
                 g: 255,
                 b: 255
             })
         ));
-        assert_eq!(entries[7].index, Some(3));
+        assert_eq!(entries[8].index, Some(3));
     }
 
     #[test]

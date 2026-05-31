@@ -417,6 +417,16 @@ pub enum NamedColor {
     Background,
     /// Color for the cursor itself.
     Cursor,
+    /// Color for text under a block cursor.
+    CursorText,
+    /// Color for selected text.
+    SelectionForeground,
+    /// Color for selected cell backgrounds.
+    SelectionBackground,
+    /// Color for visual bell overlays.
+    VisualBell,
+    /// Color for transparent-background composition.
+    TransparentBackground,
     /// Dim black.
     DimBlack,
     /// Dim red.

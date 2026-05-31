@@ -3686,6 +3686,13 @@ impl Screen<'_> {
                 /// resolution. Per-panel
                 /// because each terminal can issue its own OSC 12.
                 cursor_color: rio_backend::config::colors::ColorArray,
+                /// Resolved OSC 21 `cursor_text` color for block cursor
+                /// glyph inversion and Ghostty shader uniforms.
+                cursor_text_color: rio_backend::config::colors::ColorArray,
+                #[cfg(feature = "wgpu")]
+                selection_background_color: rio_backend::config::colors::ColorArray,
+                #[cfg(feature = "wgpu")]
+                selection_foreground_color: rio_backend::config::colors::ColorArray,
                 is_active: bool,
                 damage: rio_backend::event::TerminalDamage,
                 /// Selection is per-context (`renderable_content`), not
@@ -3813,6 +3820,21 @@ impl Screen<'_> {
                 let cursor_color = term_colors
                     [rio_backend::config::colors::NamedColor::Cursor as usize]
                     .unwrap_or(self.renderer.named_colors.cursor);
+                let cursor_text_color = term_colors
+                    [rio_backend::config::colors::NamedColor::CursorText as usize]
+                    .unwrap_or(self.renderer.named_colors.background.0);
+                #[cfg(feature = "wgpu")]
+                let selection_background_color =
+                    crate::grid_emit::selection_background_color(
+                        &self.renderer,
+                        &term_colors,
+                    );
+                #[cfg(feature = "wgpu")]
+                let selection_foreground_color =
+                    crate::grid_emit::selection_foreground_color(
+                        &self.renderer,
+                        &term_colors,
+                    );
                 panels.push(PanelFrame {
                     route_id: ctx.route_id,
                     layout_rect: item.layout_rect,
@@ -3833,6 +3855,11 @@ impl Screen<'_> {
                     cursor_blink_visible,
                     cursor_preedit,
                     cursor_color,
+                    cursor_text_color,
+                    #[cfg(feature = "wgpu")]
+                    selection_background_color,
+                    #[cfg(feature = "wgpu")]
+                    selection_foreground_color,
                     is_active,
                     damage,
                     selection,
@@ -4111,15 +4138,9 @@ impl Screen<'_> {
                                     as usize]
                                 .unwrap_or(self.renderer.named_colors.foreground),
                             cursor_color: p.cursor_color,
-                            cursor_text: self.renderer.named_colors.background.0,
-                            selection_background_color: self
-                                .renderer
-                                .named_colors
-                                .selection_background,
-                            selection_foreground_color: self
-                                .renderer
-                                .named_colors
-                                .selection_foreground,
+                            cursor_text: p.cursor_text_color,
+                            selection_background_color: p.selection_background_color,
+                            selection_foreground_color: p.selection_foreground_color,
                         });
                 }
 
@@ -4138,7 +4159,12 @@ impl Screen<'_> {
                     (
                         [p.cursor_col as u32, p.cursor_row as u32],
                         [bg_col[0], bg_col[1], bg_col[2], bg_col[3]],
-                        [p.cursor_color[0], p.cursor_color[1], p.cursor_color[2], 1.0],
+                        [
+                            p.cursor_text_color[0],
+                            p.cursor_text_color[1],
+                            p.cursor_text_color[2],
+                            1.0,
+                        ],
                     )
                 } else {
                     ([u32::MAX; 2], [0.0; 4], [0.0; 4])

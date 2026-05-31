@@ -33,8 +33,9 @@ Already implemented or partially validated in Yazelix-terminal:
   replies, and untracked close replies
 - OSC 133 semantic prompt regions, prompt navigation, and output selection
 - OSC 52 hardened clipboard policy
-- OSC 21 first slice for foreground, background, cursor, and ANSI palette
-  set/query/reset
+- OSC 21 keyed color set/query/reset for foreground, background, cursor,
+  cursor text, selection colors, visual bell color, transparent background
+  color, and ANSI palette slots
 - OSC 22 pointer shape set/reset, push/pop, current/support query, and
   frontend cursor selection
 

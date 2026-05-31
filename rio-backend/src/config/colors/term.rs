@@ -4,7 +4,7 @@ use crate::config::Colors;
 use std::ops::{Index, IndexMut};
 
 /// Number of terminal colors.
-pub const COUNT: usize = 269;
+pub const COUNT: usize = 274;
 
 /// Factor for automatic computation of dim colors.
 pub const DIM_FACTOR: f32 = 0.66;
@@ -126,6 +126,12 @@ impl List {
         // Foreground and background.
         self[NamedColor::Foreground] = colors.foreground;
         self[NamedColor::Background] = colors.background.0;
+        self[NamedColor::Cursor] = colors.cursor;
+        self[NamedColor::CursorText] = colors.background.0;
+        self[NamedColor::SelectionForeground] = colors.selection_foreground;
+        self[NamedColor::SelectionBackground] = colors.selection_background;
+        self[NamedColor::VisualBell] = colors.foreground;
+        self[NamedColor::TransparentBackground] = colors.background.0;
 
         // Dims.
         if let Some(color) = colors.dim_foreground {

@@ -5241,6 +5241,46 @@ mod tests {
     }
 
     #[test]
+    // Defends: OSC 21 special keyed colors use real terminal color slots, not unsupported-query fallbacks.
+    fn kitty_color_special_slots_set_query_and_reset() {
+        let (mut term, events) = make_capturing_crosswords(7);
+        let index = NamedColor::SelectionBackground as usize;
+        let color = ColorRgb { r: 1, g: 2, b: 3 };
+
+        Handler::set_color(&mut term, index, color);
+        assert_eq!(term.colors()[index], Some(color.to_arr()));
+
+        Handler::kitty_color_sequence(
+            &mut term,
+            "selection_background".to_string(),
+            Some(index),
+            "\x07",
+        );
+
+        Handler::reset_color(&mut term, index);
+        assert_eq!(term.colors()[index], None);
+
+        let replies = events
+            .borrow()
+            .iter()
+            .filter_map(|event| match event {
+                RioEvent::ColorRequest(route_id, request_index, format) => {
+                    Some((*route_id, *request_index, format(color)))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            replies,
+            vec![(
+                7,
+                index,
+                "\x1b]21;selection_background=rgb:01/02/03\x07".to_string()
+            )]
+        );
+    }
+
+    #[test]
     // Defends: OSC 133 prompt/input/output state is durable row metadata, not only a parser side effect.
     fn semantic_prompt_marks_prompt_input_and_output_rows() {
         let mut term = make_crosswords();

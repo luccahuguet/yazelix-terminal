@@ -24,7 +24,7 @@
 
 use core::hash::Hasher;
 use rio_backend::config::colors::term::TermColors;
-use rio_backend::config::colors::{AnsiColor, NamedColor};
+use rio_backend::config::colors::{AnsiColor, ColorArray, NamedColor};
 use rio_backend::crosswords::grid::row::Row;
 use rio_backend::crosswords::pos::{Column, Line, Pos};
 use rio_backend::crosswords::search::Match;
@@ -311,8 +311,26 @@ pub fn cell_fg_selected(
     if renderer.ignore_selection_fg_color {
         cell_fg(sq, style, renderer, term_colors)
     } else {
-        normalized_to_u8(renderer.named_colors.selection_foreground)
+        normalized_to_u8(selection_foreground_color(renderer, term_colors))
     }
+}
+
+#[inline]
+pub(crate) fn selection_foreground_color(
+    renderer: &Renderer,
+    term_colors: &TermColors,
+) -> ColorArray {
+    term_colors[NamedColor::SelectionForeground as usize]
+        .unwrap_or(renderer.named_colors.selection_foreground)
+}
+
+#[inline]
+pub(crate) fn selection_background_color(
+    renderer: &Renderer,
+    term_colors: &TermColors,
+) -> ColorArray {
+    term_colors[NamedColor::SelectionBackground as usize]
+        .unwrap_or(renderer.named_colors.selection_background)
 }
 
 // Decoration sprites (underlines, strikethrough)
@@ -1030,7 +1048,10 @@ pub fn build_row_bg(
 
     // Slow path: selection and/or hint highlighting present.
     let sel_bg = if has_sel {
-        Some(normalized_to_u8(renderer.named_colors.selection_background))
+        Some(normalized_to_u8(selection_background_color(
+            renderer,
+            term_colors,
+        )))
     } else {
         None
     };
