@@ -57,6 +57,9 @@ Already implemented or partially validated in Yazelix-terminal:
 - Kitty file transfer OSC 5113 parser, approval request routing, and safe
   remote-to-local `send` writes through an explicit transfer directory and
   per-session staging root
+- Kitty file transfer user-approved local-to-remote `receive` reads with path
+  preview, bounded directory traversal, regular file/directory metadata
+  listing, and one-file-at-a-time regular file streaming
 
 Important gaps found during this audit:
 
@@ -69,8 +72,9 @@ Important gaps found during this audit:
   Kitty-frontier work rather than strict Ghostty parity.
 - OSC 72 drag/drop is absent and crosses a security and OS-integration boundary
   that should not be treated as parser-only work.
-- Kitty file transfer still needs safe local reads, compression, symlink/link
-  policy, and any trusted bypass mechanism before it matches Kitty's full spec.
+- Kitty file transfer still needs compression, symlink/link policy, richer
+  metadata preservation, destination chooser UX, and any trusted bypass
+  mechanism before it matches Kitty's full spec.
 
 ## Must
 
@@ -280,13 +284,16 @@ Result:
   `$XDG_DOWNLOAD_DIR/yazelix-terminal-transfers` or
   `~/Downloads/yazelix-terminal-transfers`, staged under `.staging` and
   committed only on `finish`
-- Implemented deterministic rejection for receive/read sessions, out-of-order
-  data, path escapes, duplicate active sessions, links, compression, rsync mode,
-  and oversized transfers
+- Implemented approved receive/read sessions that collect requested paths before
+  approval, show a path preview, list regular files/directories with bounded
+  traversal, and stream regular file data one file at a time
+- Implemented deterministic rejection for out-of-order data, path escapes,
+  duplicate active sessions, links, compression, rsync mode, oversized
+  transfers, excessive receive path counts, and too-deep directory traversal
 - Added parser/handler/grid tests and a conformance fixture
-- Remaining limitation: no receive/read support, no destination chooser beyond
-  the explicit default transfer directory, no compression, no symlink/link
-  handling, and no trusted bypass support
+- Remaining limitation: no destination chooser beyond the explicit default
+  transfer directory, no compression, no symlink/link handling, no rich metadata
+  preservation, and no trusted bypass support
 
 ### OSC 72 Drag And Drop
 

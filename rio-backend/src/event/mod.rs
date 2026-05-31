@@ -12,7 +12,6 @@ use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::fmt::Formatter;
-use std::path::PathBuf;
 use std::sync::Arc;
 use teletypewriter::WinsizeBuilder;
 
@@ -237,7 +236,8 @@ pub enum RioEvent {
     KittyFileTransferApprovalRequest {
         route_id: usize,
         id: String,
-        destination_root: PathBuf,
+        title: String,
+        body: String,
     },
 
     /// Result of the user's decision for a Kitty OSC 5113 send session.

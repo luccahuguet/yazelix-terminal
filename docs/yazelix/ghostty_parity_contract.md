@@ -177,10 +177,11 @@ required for the first usable Yazelix terminal:
   prove useful
 - Kitty file transfer protocol
 - Kitty file transfer currently supports user-approved remote-to-local `send`
-  sessions for regular files and directories, staged under an explicit transfer
-  directory before commit; receive/read-local-files support, compression,
-  symlinks, links, and trusted bypass remain out of scope until their security
-  policy is implemented
+  sessions for regular files and directories, plus user-approved
+  local-to-remote `receive` reads with path preview, bounded traversal,
+  metadata listing, and one-file-at-a-time regular file streaming; compression,
+  symlinks, links, richer metadata preservation, and trusted bypass remain out
+  of scope until their security policy is implemented
 - advanced terminal annotations or command-output navigation surfaces
 - richer prompt/command region actions once OSC 133 state is stable
 - image animation beyond what current Kitty graphics support needs for Yazelix

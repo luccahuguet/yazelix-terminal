@@ -52,7 +52,8 @@ Current remote-to-local behavior:
   staging directory and commit that staging directory only on `finish`
 - rejected, canceled, errored, or uncommitted sessions do not expose partial
   files in the final destination root
-- receive/read-local-files sessions still fail closed with `EPERM`
+- receive/read-local-files sessions collect the requested path list first, then
+  ask for explicit approval before listing metadata or reading file contents
 - the UI is denied by default when notification actions are unavailable
 
 ## Session Lifecycle
@@ -117,15 +118,17 @@ Metadata rules:
 
 This corresponds to the remote client starting `action=receive`.
 
-Initial safe implementation:
+Current safe implementation:
 
 - require explicit user approval for every receive request
 - show every requested path or a summarized tree preview before approval
 - never follow symlinks while traversing directories
-- reject requests for absolute symlink targets
+- reject symlink/link and special-file requests
 - reject device files, sockets, FIFOs, and special files
 - send one file at a time as the spec requires
 - stop cleanly on cancel
+- enforce hard path-count, file-count, byte-count, file-size, and traversal-depth
+  limits
 
 The terminal must not let a remote process enumerate arbitrary local paths
 silently. Directory recursion must have a bounded item count, byte count, and

@@ -29,7 +29,6 @@ use rio_window::platform::macos::WindowExtMacOS;
 use rio_window::window::WindowId;
 use rio_window::window::{CursorIcon, Fullscreen};
 use std::error::Error;
-use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 fn kitty_notification_activation_reply(protocol_id: &str, button: Option<u32>) -> String {
@@ -211,7 +210,8 @@ impl Application<'_> {
         window_id: WindowId,
         route_id: usize,
         id: String,
-        destination_root: PathBuf,
+        title: String,
+        body: String,
     ) {
         let notification_id = format!("rio-file-transfer-{route_id}-{id}");
         let event_proxy = self.event_proxy.clone();
@@ -235,11 +235,8 @@ impl Application<'_> {
         let tracking = rio_notifier::send_kitty_notification(
             rio_notifier::NotificationRequest {
                 id: Some(notification_id),
-                title: "File transfer request".to_string(),
-                body: format!(
-                    "A terminal program wants to write files into {}",
-                    destination_root.display()
-                ),
+                title,
+                body,
                 report_activation: true,
                 report_close: false,
                 buttons: vec!["Accept".to_string(), "Deny".to_string()],
@@ -715,13 +712,11 @@ impl ApplicationHandler<EventPayload> for Application<'_> {
             RioEventType::Rio(RioEvent::KittyFileTransferApprovalRequest {
                 route_id,
                 id,
-                destination_root,
+                title,
+                body,
             }) => {
                 self.handle_kitty_file_transfer_approval_request(
-                    window_id,
-                    route_id,
-                    id,
-                    destination_root,
+                    window_id, route_id, id, title, body,
                 );
             }
             RioEventType::Rio(RioEvent::KittyFileTransferApprovalDecision {

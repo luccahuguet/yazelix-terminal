@@ -2592,7 +2592,8 @@ impl<U: EventListener> Crosswords<U> {
                 RioEvent::KittyFileTransferApprovalRequest {
                     route_id: self.route_id,
                     id: request.id,
-                    destination_root: request.destination_root,
+                    title: request.title,
+                    body: request.body,
                 },
                 self.window_id,
             );
@@ -6295,6 +6296,10 @@ mod tests {
             .set_session_destination_root(id, destination_root);
     }
 
+    fn encoded_file_transfer_status(status: &str) -> String {
+        general_purpose::STANDARD.encode(status.as_bytes())
+    }
+
     fn cell_has_text_sizing<U: EventListener>(
         term: &Crosswords<U>,
         row: usize,
@@ -7522,6 +7527,182 @@ mod tests {
             .iter()
             .any(|(_, reply)| reply.contains("fid=file_1;st=RUlOVkFM")));
         assert!(!temp_dir.join("escape.txt").exists());
+        let _ = fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    // Defends: OSC 5113 receive sessions collect requested paths before prompting and do not read before approval.
+    fn osc5113_receive_collects_paths_then_requests_approval() {
+        let (mut term, events) = make_capturing_crosswords(7);
+        let temp_dir = unique_test_dir("file-transfer-receive-prompt");
+        let path = temp_dir.join("document.txt");
+
+        let mut receive =
+            kitty_file_transfer(KittyFileTransferAction::Receive, "session-1");
+        receive.size = Some(1);
+        Handler::kitty_file_transfer(&mut term, receive, "\x1b\\");
+        let mut file = kitty_file_transfer(KittyFileTransferAction::File, "session-1");
+        file.file_id = Some("request_1".to_owned());
+        file.name = Some(path.to_string_lossy().to_string());
+        Handler::kitty_file_transfer(&mut term, file, "\x1b\\");
+
+        assert!(captured_pty_writes(&events).is_empty());
+        let captured = events.borrow();
+        assert!(captured.iter().any(|event| matches!(
+            event,
+            RioEvent::KittyFileTransferApprovalRequest { route_id: 7, id, body, .. }
+                if id == "session-1" && body.contains("document.txt")
+        )));
+        assert_eq!(term.kitty_file_transfer.active_session_count(), 1);
+        let _ = fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    // Defends: denied OSC 5113 receive approval replies EPERM and leaves no read session alive.
+    fn osc5113_receive_denied_approval_replies_eperm() {
+        let (mut term, events) = make_capturing_crosswords(7);
+        let temp_dir = unique_test_dir("file-transfer-receive-deny");
+        let path = temp_dir.join("document.txt");
+
+        let mut receive =
+            kitty_file_transfer(KittyFileTransferAction::Receive, "session-1");
+        receive.size = Some(1);
+        Handler::kitty_file_transfer(&mut term, receive, "\x1b\\");
+        let mut file = kitty_file_transfer(KittyFileTransferAction::File, "session-1");
+        file.file_id = Some("request_1".to_owned());
+        file.name = Some(path.to_string_lossy().to_string());
+        Handler::kitty_file_transfer(&mut term, file, "\x1b\\");
+        term.handle_kitty_file_transfer_approval("session-1", false);
+
+        assert!(captured_pty_writes(&events)
+            .iter()
+            .any(|(_, reply)| reply.contains(&format!(
+                "id=session-1;st={};",
+                encoded_file_transfer_status("EPERM:User refused the transfer")
+            ))));
+        assert_eq!(term.kitty_file_transfer.active_session_count(), 0);
+        let _ = fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    // Defends: approved OSC 5113 receive sessions list and stream only an explicitly requested regular file.
+    fn osc5113_receive_approved_regular_file_streams_data() {
+        let (mut term, events) = make_capturing_crosswords(7);
+        let temp_dir = unique_test_dir("file-transfer-receive-file");
+        fs::create_dir_all(&temp_dir).unwrap();
+        let path = temp_dir.join("document.txt");
+        fs::write(&path, b"hello").unwrap();
+
+        let mut receive =
+            kitty_file_transfer(KittyFileTransferAction::Receive, "session-1");
+        receive.size = Some(1);
+        Handler::kitty_file_transfer(&mut term, receive, "\x1b\\");
+        let mut file = kitty_file_transfer(KittyFileTransferAction::File, "session-1");
+        file.file_id = Some("request_1".to_owned());
+        file.name = Some(path.to_string_lossy().to_string());
+        Handler::kitty_file_transfer(&mut term, file, "\x1b\\");
+        term.handle_kitty_file_transfer_approval("session-1", true);
+
+        let metadata_name =
+            general_purpose::STANDARD.encode(path.to_string_lossy().as_bytes());
+        assert!(captured_pty_writes(&events).iter().any(|(_, reply)| {
+            reply.contains("ac=file;id=session-1;fid=request_1;")
+                && reply.contains("ft=regular;sz=5;")
+                && reply.contains(&format!("n={metadata_name};"))
+        }));
+
+        let mut read = kitty_file_transfer(KittyFileTransferAction::File, "session-1");
+        read.file_id = Some("request_1".to_owned());
+        read.name = Some(path.to_string_lossy().to_string());
+        Handler::kitty_file_transfer(&mut term, read, "\x1b\\");
+
+        assert!(captured_pty_writes(&events).iter().any(|(_, reply)| {
+            reply == "\x1b]5113;ac=end_data;id=session-1;fid=request_1;d=aGVsbG8=\x1b\\"
+        }));
+        let _ = fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    // Defends: OSC 5113 receive sessions enforce bounded requested path counts before approval.
+    fn osc5113_receive_rejects_excessive_path_count() {
+        let (mut term, events) = make_capturing_crosswords(7);
+        let mut receive =
+            kitty_file_transfer(KittyFileTransferAction::Receive, "session-1");
+        receive.size = Some(65);
+
+        Handler::kitty_file_transfer(&mut term, receive, "\x1b\\");
+
+        assert!(captured_pty_writes(&events)
+            .iter()
+            .any(|(_, reply)| reply.contains(&format!(
+                "id=session-1;st={};",
+                encoded_file_transfer_status("EFBIG:Too many requested paths")
+            ))));
+        assert_eq!(term.kitty_file_transfer.active_session_count(), 0);
+    }
+
+    #[test]
+    // Defends: directory receive traversal is bounded instead of recursively enumerating arbitrary depth.
+    fn osc5113_receive_rejects_deep_directory_traversal() {
+        let (mut term, events) = make_capturing_crosswords(7);
+        let temp_dir = unique_test_dir("file-transfer-receive-depth");
+        let mut current = temp_dir.clone();
+        for index in 0..18 {
+            current = current.join(format!("d{index}"));
+            fs::create_dir_all(&current).unwrap();
+        }
+
+        let mut receive =
+            kitty_file_transfer(KittyFileTransferAction::Receive, "session-1");
+        receive.size = Some(1);
+        Handler::kitty_file_transfer(&mut term, receive, "\x1b\\");
+        let mut file = kitty_file_transfer(KittyFileTransferAction::File, "session-1");
+        file.file_id = Some("request_1".to_owned());
+        file.name = Some(temp_dir.to_string_lossy().to_string());
+        Handler::kitty_file_transfer(&mut term, file, "\x1b\\");
+        term.handle_kitty_file_transfer_approval("session-1", true);
+
+        assert!(captured_pty_writes(&events)
+            .iter()
+            .any(|(_, reply)| reply.contains(&format!(
+                "fid=request_1;st={};",
+                encoded_file_transfer_status("EFBIG:Directory traversal is too deep")
+            ))));
+        let _ = fs::remove_dir_all(temp_dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    // Defends: OSC 5113 receive path validation rejects symlink parents instead of following them to local files.
+    fn osc5113_receive_rejects_symlink_parent_paths() {
+        let (mut term, events) = make_capturing_crosswords(7);
+        let temp_dir = unique_test_dir("file-transfer-receive-symlink");
+        let real_dir = temp_dir.join("real");
+        let link_dir = temp_dir.join("link");
+        fs::create_dir_all(&real_dir).unwrap();
+        fs::write(real_dir.join("secret.txt"), b"secret").unwrap();
+        std::os::unix::fs::symlink(&real_dir, &link_dir).unwrap();
+        let requested_path = link_dir.join("secret.txt");
+
+        let mut receive =
+            kitty_file_transfer(KittyFileTransferAction::Receive, "session-1");
+        receive.size = Some(1);
+        Handler::kitty_file_transfer(&mut term, receive, "\x1b\\");
+        let mut file = kitty_file_transfer(KittyFileTransferAction::File, "session-1");
+        file.file_id = Some("request_1".to_owned());
+        file.name = Some(requested_path.to_string_lossy().to_string());
+        Handler::kitty_file_transfer(&mut term, file, "\x1b\\");
+        term.handle_kitty_file_transfer_approval("session-1", true);
+
+        assert!(captured_pty_writes(&events)
+            .iter()
+            .any(|(_, reply)| reply.contains(&format!(
+                "fid=request_1;st={};",
+                encoded_file_transfer_status("ENOSYS:Links are not supported")
+            ))));
+        assert!(!captured_pty_writes(&events)
+            .iter()
+            .any(|(_, reply)| reply.contains("d=c2VjcmV0")));
         let _ = fs::remove_dir_all(temp_dir);
     }
 
