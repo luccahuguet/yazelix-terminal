@@ -90,6 +90,14 @@
       "hex": "1b5b332b54"
     },
     {
+      "id": "kitty_multiple_cursors_query_set_clear",
+      "tier": "should",
+      "protocol": "Kitty multiple cursors",
+      "description": "Query support, set a follow-main cursor, query cursor state, set extra cursor colors, query colors, then clear all extra cursors.",
+      "source": "Kitty multiple cursors protocol uses CSI > ... SP q with shape, coordinate, color, support, state, and color query operations.",
+      "hex": "1b5b3e20711b5b3e32393b323a343a3520711b5b3e31303020711b5b3e33303b323a313a323a3320711b5b3e34303b353a343220711b5b3e31303120711b5b3e303b342071"
+    },
+    {
       "id": "kitty_graphics_1x1_rgba",
       "tier": "must",
       "protocol": "Kitty graphics",

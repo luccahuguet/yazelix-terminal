@@ -406,6 +406,9 @@ pub trait Handler {
     /// XTVERSION - Report terminal version.
     fn report_version(&mut self) {}
 
+    /// Kitty multiple cursors protocol.
+    fn kitty_multiple_cursors(&mut self, _params: &Params) {}
+
     /// DECSTBM - Set the terminal scrolling region.
     fn set_scrolling_region(&mut self, _top: usize, _bottom: Option<usize>) {}
 
@@ -1444,6 +1447,7 @@ impl<U: Handler> Perform for Performer<'_, U> {
                     1 => ClearMode::Above,
                     2 => ClearMode::All,
                     3 => ClearMode::Saved,
+                    22 => ClearMode::ExtraCursors,
                     _ => {
                         csi_unhandled!();
                         return;
@@ -1530,6 +1534,10 @@ impl<U: Handler> Perform for Performer<'_, U> {
                     return;
                 }
                 handler.report_version();
+            }
+            ('q', [b'>', b' ']) => {
+                // Kitty multiple cursors protocol (CSI > ... SP q).
+                handler.kitty_multiple_cursors(params);
             }
             ('q', [b' ']) => {
                 // DECSCUSR (CSI SP q) -- Set Cursor Style.
@@ -2500,6 +2508,34 @@ mod tests {
         let sizing = handler.sizing.expect("OSC 66 should dispatch");
         assert_eq!(sizing.width, Some(2));
         assert_eq!(sizing.text, " ");
+    }
+
+    #[test]
+    // Defends: real Kitty multiple-cursor CSI bytes reach Handler::kitty_multiple_cursors with subparameters intact.
+    fn kitty_multiple_cursors_dispatches_to_handler() {
+        #[derive(Default)]
+        struct TestHandler {
+            calls: Vec<Vec<Vec<u16>>>,
+        }
+
+        impl Handler for TestHandler {
+            fn kitty_multiple_cursors(&mut self, params: &Params) {
+                self.calls
+                    .push(params.iter().map(|param| param.to_vec()).collect());
+            }
+        }
+
+        let mut state = ProcessorState::default();
+        let mut handler = TestHandler::default();
+        let mut performer = Performer::new(&mut state, &mut handler);
+        let mut parser = Parser::default();
+
+        parser.advance(&mut performer, b"\x1b[> q\x1b[>29;2:4:5 q");
+
+        assert_eq!(
+            handler.calls,
+            vec![vec![vec![0]], vec![vec![29], vec![2, 4, 5]]]
+        );
     }
 
     #[test]

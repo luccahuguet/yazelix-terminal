@@ -377,6 +377,12 @@ impl Renderer {
                 context.renderable_content.columns = snapshot_cols;
                 context.renderable_content.screen_lines = terminal.screen_lines();
                 context.renderable_content.history_size = terminal.history_size();
+                context.renderable_content.extra_cursors =
+                    terminal.extra_cursors().to_vec();
+                context.renderable_content.extra_cursor_colors =
+                    terminal.extra_cursor_colors();
+                context.renderable_content.extra_cursor_follow_shape =
+                    terminal.cursor_shape;
                 context.renderable_content.blinking_cursor = terminal.blinking_cursor;
                 context.renderable_content.cursor.state = terminal.cursor();
                 context.renderable_content.kitty_virtual_placements =

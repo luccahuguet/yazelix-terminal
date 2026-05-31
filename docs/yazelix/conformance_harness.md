@@ -102,6 +102,7 @@ The first manifest covers:
 - Kitty keyboard stack push/union/pop/query stream
 - Kitty keyboard black-box key-event case matrix
 - Kitty unscrolling CSI plus T
+- Kitty multiple cursors support/set/state/color/clear stream
 - Kitty graphics 1x1 RGBA transmit/place
 - minimal Sixel DCS path
 - synchronized output DECSET 2026

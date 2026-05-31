@@ -16,6 +16,7 @@
 
 pub mod attr;
 pub mod grid;
+pub mod kitty_multiple_cursors;
 pub mod pos;
 pub mod search;
 pub mod square;
@@ -54,6 +55,10 @@ use base64::{engine::general_purpose, Engine as _};
 use bitflags::bitflags;
 use cursor_icon::CursorIcon;
 use grid::row::{Row, SemanticZone};
+pub use kitty_multiple_cursors::{
+    KittyExtraCursor, KittyExtraCursorColor, KittyExtraCursorColors,
+    KittyExtraCursorShape,
+};
 use pos::{
     Boundary, CharsetIndex, Column, Cursor, CursorState, Direction, Line, Pos, Side,
 };
@@ -504,6 +509,8 @@ where
     inactive_keyboard_mode_idx: usize,
     mouse_cursor_stack: Vec<CursorIcon>,
     inactive_mouse_cursor_stack: Vec<CursorIcon>,
+    extra_cursors: Vec<KittyExtraCursor>,
+    extra_cursor_colors: KittyExtraCursorColors,
 }
 
 impl<U: EventListener> Crosswords<U> {
@@ -563,6 +570,8 @@ impl<U: EventListener> Crosswords<U> {
             inactive_keyboard_mode_idx: 0,
             mouse_cursor_stack: Vec::new(),
             inactive_mouse_cursor_stack: Vec::new(),
+            extra_cursors: Vec::new(),
+            extra_cursor_colors: KittyExtraCursorColors::default(),
         }
     }
 
@@ -1767,6 +1776,207 @@ impl<U: EventListener> Crosswords<U> {
         self.grid.screen_lines()
     }
 
+    pub fn extra_cursors(&self) -> &[KittyExtraCursor] {
+        &self.extra_cursors
+    }
+
+    pub fn extra_cursor_colors(&self) -> KittyExtraCursorColors {
+        self.extra_cursor_colors
+    }
+
+    #[inline]
+    fn report_kitty_extra_cursor_support(&mut self) {
+        let text = String::from("\x1b[>1;2;3;29;30;40;100;101 q");
+        self.event_proxy
+            .send_event(RioEvent::PtyWrite(self.route_id, text), self.window_id);
+    }
+
+    #[inline]
+    fn report_kitty_extra_cursor_state(&mut self) {
+        let mut cursors = self.extra_cursors.clone();
+        cursors.sort_by_key(|cursor| {
+            (cursor.shape.protocol_code(), cursor.row.0, cursor.col.0)
+        });
+
+        let mut text = String::from("\x1b[>100");
+        for cursor in cursors {
+            text.push_str(&format!(
+                ";{}:2:{}:{}",
+                cursor.shape.protocol_code(),
+                cursor.row.0 + 1,
+                cursor.col.0 + 1
+            ));
+        }
+        text.push_str(" q");
+        self.event_proxy
+            .send_event(RioEvent::PtyWrite(self.route_id, text), self.window_id);
+    }
+
+    #[inline]
+    fn report_kitty_extra_cursor_colors(&mut self) {
+        let text = format!(
+            "\x1b[>101;{};{} q",
+            self.extra_cursor_colors.text.query_payload(30),
+            self.extra_cursor_colors.cursor.query_payload(40),
+        );
+        self.event_proxy
+            .send_event(RioEvent::PtyWrite(self.route_id, text), self.window_id);
+    }
+
+    fn set_kitty_extra_cursor_color(&mut self, which: u16, params: &Params) {
+        let mut iter = params.iter();
+        let _ = iter.next();
+        let Some(color_params) = iter.next() else {
+            return;
+        };
+        if iter.next().is_some() {
+            return;
+        }
+        let Some(color) = KittyExtraCursorColor::from_subparams(color_params) else {
+            return;
+        };
+
+        let changed = match which {
+            30 if self.extra_cursor_colors.text != color => {
+                self.extra_cursor_colors.text = color;
+                true
+            }
+            40 if self.extra_cursor_colors.cursor != color => {
+                self.extra_cursor_colors.cursor = color;
+                true
+            }
+            _ => false,
+        };
+        if changed {
+            self.mark_fully_damaged();
+        }
+    }
+
+    fn apply_kitty_extra_cursor_shape(
+        &mut self,
+        shape: Option<KittyExtraCursorShape>,
+        params: &Params,
+    ) {
+        let mut changed = false;
+        for coord_group in params.iter().skip(1) {
+            let Some(coord_type) = coord_group.first().copied() else {
+                continue;
+            };
+            match coord_type {
+                0 => {
+                    let pos = self.grid.cursor.pos;
+                    changed |= self.set_kitty_extra_cursor(pos.row, pos.col, shape);
+                }
+                2 => {
+                    for point in coord_group[1..].chunks_exact(2) {
+                        if let Some((row, col)) =
+                            self.kitty_extra_cursor_point(point[0], point[1])
+                        {
+                            changed |= self.set_kitty_extra_cursor(row, col, shape);
+                        }
+                    }
+                }
+                4 if coord_group.len() == 1 => {
+                    changed |= self.apply_kitty_extra_cursor_rect(
+                        1,
+                        1,
+                        self.screen_lines() as u16,
+                        self.columns() as u16,
+                        shape,
+                    );
+                }
+                4 => {
+                    for rect in coord_group[1..].chunks_exact(4) {
+                        changed |= self.apply_kitty_extra_cursor_rect(
+                            rect[0], rect[1], rect[2], rect[3], shape,
+                        );
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if changed {
+            self.mark_fully_damaged();
+        }
+    }
+
+    fn kitty_extra_cursor_point(&self, row: u16, col: u16) -> Option<(Line, Column)> {
+        if row == 0
+            || col == 0
+            || usize::from(row) > self.screen_lines()
+            || usize::from(col) > self.columns()
+        {
+            return None;
+        }
+        Some((Line(i32::from(row) - 1), Column(usize::from(col) - 1)))
+    }
+
+    fn apply_kitty_extra_cursor_rect(
+        &mut self,
+        top: u16,
+        left: u16,
+        bottom: u16,
+        right: u16,
+        shape: Option<KittyExtraCursorShape>,
+    ) -> bool {
+        let rows = self.screen_lines();
+        let cols = self.columns();
+        if rows == 0 || cols == 0 || bottom == 0 || right == 0 {
+            return false;
+        }
+
+        let top = usize::from(top.max(1));
+        let left = usize::from(left.max(1));
+        let bottom = usize::from(bottom).min(rows);
+        let right = usize::from(right).min(cols);
+        if top > bottom || left > right {
+            return false;
+        }
+
+        let mut changed = false;
+        for row in top..=bottom {
+            for col in left..=right {
+                changed |= self.set_kitty_extra_cursor(
+                    Line(row as i32 - 1),
+                    Column(col - 1),
+                    shape,
+                );
+            }
+        }
+        changed
+    }
+
+    fn set_kitty_extra_cursor(
+        &mut self,
+        row: Line,
+        col: Column,
+        shape: Option<KittyExtraCursorShape>,
+    ) -> bool {
+        let existing = self
+            .extra_cursors
+            .iter()
+            .position(|cursor| cursor.row == row && cursor.col == col);
+
+        match (existing, shape) {
+            (Some(index), Some(shape)) if self.extra_cursors[index].shape != shape => {
+                self.extra_cursors[index].shape = shape;
+                true
+            }
+            (Some(_), Some(_)) => false,
+            (Some(index), None) => {
+                self.extra_cursors.swap_remove(index);
+                true
+            }
+            (None, Some(shape)) => {
+                self.extra_cursors
+                    .push(KittyExtraCursor { row, col, shape });
+                true
+            }
+            (None, None) => false,
+        }
+    }
+
     fn deccolm(&mut self)
     where
         U: EventListener,
@@ -1845,6 +2055,7 @@ impl<U: EventListener> Crosswords<U> {
         mem::swap(&mut self.grid, &mut self.inactive_grid);
         self.mode ^= Mode::ALT_SCREEN;
         self.selection = None;
+        self.extra_cursors.clear();
 
         // Swap kitty graphics state per screen so each screen owns its
         // own image cache, placements, number map, and virtual placements.
@@ -2199,6 +2410,31 @@ impl<U: EventListener> Crosswords<U> {
 }
 
 impl<U: EventListener> Handler for Crosswords<U> {
+    fn kitty_multiple_cursors(&mut self, params: &Params) {
+        let Some(first) = params.iter().next() else {
+            self.report_kitty_extra_cursor_support();
+            return;
+        };
+        let [operation] = first else {
+            return;
+        };
+        let has_trailing_groups = params.iter().nth(1).is_some();
+
+        match *operation {
+            0 if !has_trailing_groups => self.report_kitty_extra_cursor_support(),
+            0 | 1 | 2 | 3 | 29 => {
+                if let Some(shape) = KittyExtraCursorShape::from_protocol_code(*operation)
+                {
+                    self.apply_kitty_extra_cursor_shape(shape, params);
+                }
+            }
+            30 | 40 => self.set_kitty_extra_cursor_color(*operation, params),
+            100 if !has_trailing_groups => self.report_kitty_extra_cursor_state(),
+            101 if !has_trailing_groups => self.report_kitty_extra_cursor_colors(),
+            _ => {}
+        }
+    }
+
     #[inline]
     fn set_mode(&mut self, mode: AnsiMode) {
         let mode = match mode {
@@ -2908,6 +3144,8 @@ impl<U: EventListener> Handler for Crosswords<U> {
         self.inactive_keyboard_mode_stack = Default::default();
         self.mouse_cursor_stack.clear();
         self.inactive_mouse_cursor_stack.clear();
+        self.extra_cursors.clear();
+        self.extra_cursor_colors = KittyExtraCursorColors::default();
 
         // Clear kitty graphics on full reset (both active and inactive
         // screens, so a reset doesn't leave stale images on the other
@@ -3580,6 +3818,15 @@ impl<U: EventListener> Handler for Crosswords<U> {
             }
             // We have no history to clear.
             ClearMode::Saved => (),
+            ClearMode::ExtraCursors => (),
+        }
+
+        let cleared_extra_cursors = matches!(
+            mode,
+            ClearMode::All | ClearMode::Saved | ClearMode::ExtraCursors
+        ) && !self.extra_cursors.is_empty();
+        if cleared_extra_cursors {
+            self.extra_cursors.clear();
         }
 
         // Mark affected lines as damaged based on clear mode
@@ -3596,7 +3843,7 @@ impl<U: EventListener> Handler for Crosswords<U> {
                     self.damage.damage_line(line);
                 }
             }
-            ClearMode::All | ClearMode::Saved => {
+            ClearMode::All | ClearMode::Saved | ClearMode::ExtraCursors => {
                 self.mark_fully_damaged();
             }
         }
@@ -5209,6 +5456,158 @@ mod tests {
             10,
         );
         (term, events)
+    }
+
+    fn params(groups: &[&[u16]]) -> Params {
+        let mut params = Params::default();
+        for group in groups {
+            match group {
+                [] => {}
+                [single] => params.push(*single),
+                many => {
+                    for value in &many[..many.len() - 1] {
+                        params.extend(*value);
+                    }
+                    params.push(*many.last().unwrap());
+                }
+            }
+        }
+        params
+    }
+
+    #[test]
+    // Defends: Kitty multiple-cursor support queries emit the advertised supported operation list.
+    fn kitty_extra_cursor_support_query_replies() {
+        let (mut term, events) = make_capturing_crosswords(7);
+
+        Handler::kitty_multiple_cursors(&mut term, &params(&[&[0]]));
+
+        let replies = events
+            .borrow()
+            .iter()
+            .filter_map(|event| match event {
+                RioEvent::PtyWrite(route_id, reply) => Some((*route_id, reply.clone())),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            replies,
+            vec![(7, "\x1b[>1;2;3;29;30;40;100;101 q".to_owned())]
+        );
+    }
+
+    #[test]
+    // Defends: Kitty point, rectangle, and current-cursor coordinate groups mutate only visible-screen cells.
+    fn kitty_extra_cursor_coordinate_groups_update_state() {
+        let mut term = make_crosswords();
+        term.goto(Line(2), Column(3));
+
+        Handler::kitty_multiple_cursors(
+            &mut term,
+            &params(&[&[29], &[0], &[2, 1, 1, 5, 5], &[4, 2, 2, 3, 3]]),
+        );
+
+        let mut cursors = term.extra_cursors().to_vec();
+        cursors.sort_by_key(|cursor| (cursor.row.0, cursor.col.0));
+        assert_eq!(
+            cursors,
+            vec![
+                KittyExtraCursor {
+                    row: Line(0),
+                    col: Column(0),
+                    shape: KittyExtraCursorShape::FollowMain,
+                },
+                KittyExtraCursor {
+                    row: Line(1),
+                    col: Column(1),
+                    shape: KittyExtraCursorShape::FollowMain,
+                },
+                KittyExtraCursor {
+                    row: Line(1),
+                    col: Column(2),
+                    shape: KittyExtraCursorShape::FollowMain,
+                },
+                KittyExtraCursor {
+                    row: Line(2),
+                    col: Column(1),
+                    shape: KittyExtraCursorShape::FollowMain,
+                },
+                KittyExtraCursor {
+                    row: Line(2),
+                    col: Column(2),
+                    shape: KittyExtraCursorShape::FollowMain,
+                },
+                KittyExtraCursor {
+                    row: Line(2),
+                    col: Column(3),
+                    shape: KittyExtraCursorShape::FollowMain,
+                },
+            ]
+        );
+
+        Handler::kitty_multiple_cursors(&mut term, &params(&[&[0], &[4]]));
+        assert!(term.extra_cursors().is_empty());
+    }
+
+    #[test]
+    // Defends: Kitty multiple-cursor state and color queries serialize the live terminal state.
+    fn kitty_extra_cursor_state_and_color_queries_reply() {
+        let (mut term, events) = make_capturing_crosswords(7);
+
+        Handler::kitty_multiple_cursors(&mut term, &params(&[&[2], &[2, 3, 4]]));
+        Handler::kitty_multiple_cursors(&mut term, &params(&[&[1], &[2, 1, 2]]));
+        Handler::kitty_multiple_cursors(&mut term, &params(&[&[30], &[2, 1, 2, 3]]));
+        Handler::kitty_multiple_cursors(&mut term, &params(&[&[40], &[5, 42]]));
+        Handler::kitty_multiple_cursors(&mut term, &params(&[&[100]]));
+        Handler::kitty_multiple_cursors(&mut term, &params(&[&[101]]));
+
+        let replies = events
+            .borrow()
+            .iter()
+            .filter_map(|event| match event {
+                RioEvent::PtyWrite(route_id, reply) => Some((*route_id, reply.clone())),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            replies,
+            vec![
+                (7, "\x1b[>100;1:2:1:2;2:2:3:4 q".to_owned()),
+                (7, "\x1b[>101;30:2:1:2:3;40:5:42 q".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
+    // Defends: ED 2/3/22, reset, and alternate-screen switches clear ephemeral Kitty extra cursors.
+    fn kitty_extra_cursors_clear_on_terminal_boundaries() {
+        let mut term = make_crosswords();
+
+        Handler::kitty_multiple_cursors(&mut term, &params(&[&[1], &[4]]));
+        assert!(!term.extra_cursors().is_empty());
+        term.clear_screen(ClearMode::ExtraCursors);
+        assert!(term.extra_cursors().is_empty());
+
+        Handler::kitty_multiple_cursors(&mut term, &params(&[&[1], &[4]]));
+        term.clear_screen(ClearMode::All);
+        assert!(term.extra_cursors().is_empty());
+
+        Handler::kitty_multiple_cursors(&mut term, &params(&[&[1], &[4]]));
+        term.clear_screen(ClearMode::Saved);
+        assert!(term.extra_cursors().is_empty());
+
+        Handler::kitty_multiple_cursors(&mut term, &params(&[&[1], &[4]]));
+        term.swap_alt();
+        assert!(term.extra_cursors().is_empty());
+
+        Handler::kitty_multiple_cursors(&mut term, &params(&[&[1], &[4]]));
+        Handler::kitty_multiple_cursors(&mut term, &params(&[&[30], &[2, 1, 2, 3]]));
+        term.reset_state();
+        assert!(term.extra_cursors().is_empty());
+        assert_eq!(
+            term.extra_cursor_colors(),
+            KittyExtraCursorColors::default()
+        );
     }
 
     #[test]

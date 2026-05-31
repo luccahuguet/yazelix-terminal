@@ -107,6 +107,49 @@ fn ghostty_cursor_rect(
     }
 }
 
+fn cursor_color_u8(color: rio_backend::config::colors::ColorArray) -> [u8; 4] {
+    [
+        (color[0].clamp(0.0, 1.0) * 255.0) as u8,
+        (color[1].clamp(0.0, 1.0) * 255.0) as u8,
+        (color[2].clamp(0.0, 1.0) * 255.0) as u8,
+        (color[3].clamp(0.0, 1.0) * 255.0) as u8,
+    ]
+}
+
+fn extra_cursor_color_array(
+    color: rio_backend::crosswords::KittyExtraCursorColor,
+    renderer: &Renderer,
+    term_colors: &rio_backend::config::colors::term::TermColors,
+    fallback: rio_backend::config::colors::ColorArray,
+) -> rio_backend::config::colors::ColorArray {
+    match color {
+        rio_backend::crosswords::KittyExtraCursorColor::Unset
+        | rio_backend::crosswords::KittyExtraCursorColor::Special => fallback,
+        rio_backend::crosswords::KittyExtraCursorColor::Rgb(color) => color.to_arr(),
+        rio_backend::crosswords::KittyExtraCursorColor::Indexed(index) => {
+            renderer.color(index as usize, term_colors)
+        }
+    }
+}
+
+fn extra_cursor_render_shape(
+    shape: rio_backend::crosswords::KittyExtraCursorShape,
+    follow_shape: rio_backend::ansi::CursorShape,
+) -> rio_backend::ansi::CursorShape {
+    match shape {
+        rio_backend::crosswords::KittyExtraCursorShape::Block => {
+            rio_backend::ansi::CursorShape::Block
+        }
+        rio_backend::crosswords::KittyExtraCursorShape::Beam => {
+            rio_backend::ansi::CursorShape::Beam
+        }
+        rio_backend::crosswords::KittyExtraCursorShape::Underline => {
+            rio_backend::ansi::CursorShape::Underline
+        }
+        rio_backend::crosswords::KittyExtraCursorShape::FollowMain => follow_shape,
+    }
+}
+
 pub struct Screen<'screen> {
     bindings: crate::bindings::KeyBindings,
     mouse_bindings: Vec<MouseBinding>,
@@ -3689,6 +3732,9 @@ impl Screen<'_> {
                 /// Resolved OSC 21 `cursor_text` color for block cursor
                 /// glyph inversion and Ghostty shader uniforms.
                 cursor_text_color: rio_backend::config::colors::ColorArray,
+                extra_cursors: Vec<rio_backend::crosswords::KittyExtraCursor>,
+                extra_cursor_colors: rio_backend::crosswords::KittyExtraCursorColors,
+                extra_cursor_follow_shape: rio_backend::ansi::CursorShape,
                 #[cfg(feature = "wgpu")]
                 selection_background_color: rio_backend::config::colors::ColorArray,
                 #[cfg(feature = "wgpu")]
@@ -3777,6 +3823,10 @@ impl Screen<'_> {
                 let term_colors = ctx.renderable_content.term_colors;
                 let display_offset = ctx.renderable_content.display_offset as i32;
                 let selection = ctx.renderable_content.selection_range;
+                let extra_cursors = ctx.renderable_content.extra_cursors.clone();
+                let extra_cursor_colors = ctx.renderable_content.extra_cursor_colors;
+                let extra_cursor_follow_shape =
+                    ctx.renderable_content.extra_cursor_follow_shape;
                 let cursor = &ctx.renderable_content.cursor;
                 // Take + reset so next frame sees fresh damage only
                 // from this frame's `Renderer::run`.
@@ -3856,6 +3906,9 @@ impl Screen<'_> {
                     cursor_preedit,
                     cursor_color,
                     cursor_text_color,
+                    extra_cursors,
+                    extra_cursor_colors,
+                    extra_cursor_follow_shape,
                     #[cfg(feature = "wgpu")]
                     selection_background_color,
                     #[cfg(feature = "wgpu")]
@@ -4069,24 +4122,78 @@ impl Screen<'_> {
                     },
                 );
                 grid.clear_cursor();
+                let mut block_cursor_cells = Vec::new();
+                let mut non_block_cursor_cells = Vec::new();
+                let cell_w = p.cell_w.round().clamp(1.0, u32::MAX as f32) as u32;
+                let cell_h = p.cell_h.round().clamp(1.0, u32::MAX as f32) as u32;
                 if let Some(style) = render_style {
-                    let cell_w = p.cell_w.round().clamp(1.0, u32::MAX as f32) as u32;
-                    let cell_h = p.cell_h.round().clamp(1.0, u32::MAX as f32) as u32;
-                    let cursor_color = [
-                        (p.cursor_color[0].clamp(0.0, 1.0) * 255.0) as u8,
-                        (p.cursor_color[1].clamp(0.0, 1.0) * 255.0) as u8,
-                        (p.cursor_color[2].clamp(0.0, 1.0) * 255.0) as u8,
-                        255,
-                    ];
-                    crate::grid_emit::emit_cursor_sprite(
+                    if let Some(cursor_cell) = crate::grid_emit::cursor_sprite_cell(
                         grid,
                         style,
                         p.cursor_col,
                         p.cursor_row,
-                        cursor_color,
+                        cursor_color_u8(p.cursor_color),
                         cell_w,
                         cell_h,
+                    ) {
+                        if cursor_cell.block_slot {
+                            block_cursor_cells.push(cursor_cell.cell);
+                        } else {
+                            non_block_cursor_cells.push(cursor_cell.cell);
+                        }
+                    }
+                }
+                let extra_cursor_color = cursor_color_u8(extra_cursor_color_array(
+                    p.extra_cursor_colors.cursor,
+                    renderer_ref,
+                    &p.term_colors,
+                    p.cursor_color,
+                ));
+                for extra_cursor in &p.extra_cursors {
+                    if extra_cursor.row.0 < 0
+                        || extra_cursor.row.0 as u32 >= p.rows
+                        || extra_cursor.col.0 as u32 >= p.cols
+                    {
+                        continue;
+                    }
+                    let shape = extra_cursor_render_shape(
+                        extra_cursor.shape,
+                        p.extra_cursor_follow_shape,
                     );
+                    let Some(style) = crate::grid_emit::cursor_render_style(
+                        crate::grid_emit::CursorRenderInputs {
+                            visible: true,
+                            focused: true,
+                            blink_visible: p.cursor_blink_visible,
+                            blinking: p.cursor_blinking,
+                            preedit: false,
+                            shape,
+                        },
+                    ) else {
+                        continue;
+                    };
+                    let Some(cursor_cell) = crate::grid_emit::cursor_sprite_cell(
+                        grid,
+                        style,
+                        extra_cursor.col.0 as u16,
+                        extra_cursor.row.0 as u16,
+                        extra_cursor_color,
+                        cell_w,
+                        cell_h,
+                    ) else {
+                        continue;
+                    };
+                    if cursor_cell.block_slot {
+                        block_cursor_cells.push(cursor_cell.cell);
+                    } else {
+                        non_block_cursor_cells.push(cursor_cell.cell);
+                    }
+                }
+                if !block_cursor_cells.is_empty() {
+                    grid.set_block_cursor(&block_cursor_cells);
+                }
+                if !non_block_cursor_cells.is_empty() {
+                    grid.set_non_block_cursor(&non_block_cursor_cells);
                 }
 
                 // Panel's grid origin in drawable-pixel space =

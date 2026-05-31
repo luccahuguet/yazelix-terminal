@@ -58,6 +58,8 @@ pub enum ClearMode {
     All,
     /// Clear 'saved' lines (scrollback).
     Saved,
+    /// Clear Kitty extra cursors.
+    ExtraCursors,
 }
 
 #[derive(Debug)]

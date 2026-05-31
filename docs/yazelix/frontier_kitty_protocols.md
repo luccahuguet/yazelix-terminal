@@ -40,6 +40,9 @@ Already implemented or partially validated in Yazelix-terminal:
   color, and ANSI palette slots
 - OSC 22 pointer shape set/reset, push/pop, current/support query, and
   frontend cursor selection
+- Kitty multiple cursors support/state/color queries, coordinate mutation,
+  ED/reset/alternate-screen clearing, conformance fixture stream, and sprite
+  rendering through the normal cursor atlas slots
 
 Important gaps found during this audit:
 
@@ -48,9 +51,10 @@ Important gaps found during this audit:
   storage before they can be more than query-visible.
 - OSC 5522 Kitty rich clipboard is absent. Ghostty has a dedicated parser and
   fuzz coverage for it.
-- Kitty multiple cursors are absent in both Yazelix-terminal and the checked
-  Ghostty source. This remains a modern Kitty-frontier feature rather than
-  strict Ghostty parity.
+- Kitty multiple cursors still need deeper visual parity work for exact
+  reverse-video text color handling and multi-cursor Ghostty shader uniforms.
+  The checked Ghostty source does not appear to implement the protocol, so this
+  remains modern Kitty-frontier work rather than strict Ghostty parity.
 - Kitty file transfer and OSC 72 drag/drop are absent. Both cross a security and
   OS-integration boundary and should not be treated as parser-only work.
 
@@ -135,6 +139,21 @@ Scope:
 - Render them through the same cursor renderer path where possible, including
   cursor shader inputs
 - Implement support and state queries
+
+Result:
+
+- Implemented parser dispatch for CSI `> ... SP q`
+- Implemented shape operations for current cursor, point lists, full-screen
+  rectangles, and clipped rectangles
+- Implemented support, state, and color queries
+- Implemented extra cursor color state for unset, special, sRGB, and indexed
+  color spaces
+- Implemented ED 2/3/22, reset, and alternate-screen clearing
+- Rendered extra cursors through the existing block/non-block cursor atlas slots
+- Remaining limitation: the grid shader still has a single block-cursor
+  reverse-video position and Ghostty shader frame state still has one cursor, so
+  extra cursor text-color inversion and multi-cursor shader effects need a
+  follow-up renderer/shader expansion
 
 ### Kitty Keyboard Completeness Audit
 

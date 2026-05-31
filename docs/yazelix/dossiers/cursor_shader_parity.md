@@ -39,7 +39,7 @@ Rio already has the pieces needed to host this without a renderer rewrite:
 - WGPU feature builds already pull `wgpu`, `glslang`, `spirv-cross2`, and `librashader`
 - `GridUniforms` already carries active cursor position, cursor foreground swap color, cursor block fill color, cell size, grid size, padding, and colorspace flags
 - `frontends/rioterm/src/screen/mod.rs` already computes panel origin, cell dimensions, cursor shape, cursor visibility, cursor blink visibility, cursor color, active/focused panel state, and terminal colors
-- `grid_emit::emit_cursor_sprite` already has the glyph rectangle data needed for bar, underline, block, and hollow cursor geometry
+- `grid_emit::cursor_sprite_cell` already has the glyph rectangle data needed for bar, underline, block, and hollow cursor geometry
 - `TrailCursor` already tracks animated cursor destination and previous destination style data for Rio's trail effect
 
 What Rio does not have yet:

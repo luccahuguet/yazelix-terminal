@@ -91,6 +91,9 @@ pub struct RenderableContent {
     pub columns: usize,
     pub screen_lines: usize,
     pub history_size: usize,
+    pub extra_cursors: Vec<rio_backend::crosswords::KittyExtraCursor>,
+    pub extra_cursor_colors: rio_backend::crosswords::KittyExtraCursorColors,
+    pub extra_cursor_follow_shape: rio_backend::ansi::CursorShape,
     /// `true` when the terminal has cursor blink enabled this frame.
     pub blinking_cursor: bool,
     /// Kitty graphics state captured under the snapshot lock. Owned
@@ -125,6 +128,10 @@ impl RenderableContent {
             columns: 0,
             screen_lines: 0,
             history_size: 0,
+            extra_cursors: Vec::new(),
+            extra_cursor_colors: rio_backend::crosswords::KittyExtraCursorColors::default(
+            ),
+            extra_cursor_follow_shape: rio_backend::ansi::CursorShape::Block,
             blinking_cursor: false,
             kitty_virtual_placements: FxHashMap::default(),
             kitty_images: FxHashMap::default(),
