@@ -71,6 +71,8 @@ pub type NamedColor = colors::NamedColor;
 
 pub const MIN_COLUMNS: usize = 2;
 pub const MIN_LINES: usize = 1;
+const OSC52_MAX_ENCODED_BYTES: usize = 2 * 1024 * 1024;
+const OSC52_MAX_DECODED_BYTES: usize = 1024 * 1024;
 
 // Max. number of graphics stored in a single cell.
 // const MAX_GRAPHICS_PER_CELL: usize = 20;
@@ -2785,17 +2787,42 @@ impl<U: EventListener> Handler for Crosswords<U> {
         let clipboard_type = match clipboard {
             b'c' => ClipboardType::Clipboard,
             b'p' | b's' => ClipboardType::Selection,
-            _ => return,
+            _ => {
+                warn!("Ignoring OSC 52 store for unsupported clipboard designator {clipboard}");
+                return;
+            }
         };
 
-        if let Some(bytes) = crate::simd_base64::decode(base64) {
-            if let Ok(text) = simd_utf8::from_utf8_to_string(&bytes) {
-                self.event_proxy.send_event(
-                    RioEvent::ClipboardStore(clipboard_type, text),
-                    self.window_id,
-                );
-            }
+        if base64.len() > OSC52_MAX_ENCODED_BYTES {
+            warn!(
+                "Ignoring OSC 52 store larger than encoded limit: {} bytes",
+                base64.len()
+            );
+            return;
         }
+
+        let Some(bytes) = crate::simd_base64::decode(base64) else {
+            warn!("Ignoring OSC 52 store with invalid base64 payload");
+            return;
+        };
+
+        if bytes.len() > OSC52_MAX_DECODED_BYTES {
+            warn!(
+                "Ignoring OSC 52 store larger than decoded limit: {} bytes",
+                bytes.len()
+            );
+            return;
+        }
+
+        let Ok(text) = simd_utf8::from_utf8_to_string(&bytes) else {
+            warn!("Ignoring OSC 52 store with non-UTF-8 payload");
+            return;
+        };
+
+        self.event_proxy.send_event(
+            RioEvent::ClipboardStore(clipboard_type, text),
+            self.window_id,
+        );
     }
 
     #[inline]
@@ -4914,6 +4941,47 @@ mod tests {
             &captured[0],
             RioEvent::DesktopNotification { title, body }
                 if title == "Build" && body == "Done"
+        ));
+    }
+
+    #[test]
+    // Defends: OSC 52 accepts valid UTF-8 clipboard payloads and rejects malformed data without an event.
+    fn osc52_store_policy_rejects_malformed_payloads() {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+
+        #[derive(Clone)]
+        struct TestListener {
+            events: Rc<RefCell<Vec<RioEvent>>>,
+        }
+
+        impl EventListener for TestListener {
+            fn event(&self) -> (Option<RioEvent>, bool) {
+                (None, false)
+            }
+
+            fn send_event(&self, event: RioEvent, _id: WindowId) {
+                self.events.borrow_mut().push(event);
+            }
+        }
+
+        let events = Rc::new(RefCell::new(Vec::new()));
+        let listener = TestListener {
+            events: events.clone(),
+        };
+        let size = CrosswordsSize::new(4, 4);
+        let mut term =
+            Crosswords::new(size, CursorShape::Block, listener, WindowId::from(0), 0, 10);
+
+        Handler::clipboard_store(&mut term, b'c', b"aGVsbG8=");
+        Handler::clipboard_store(&mut term, b'c', b"not base64?");
+        Handler::clipboard_store(&mut term, b'x', b"aGVsbG8=");
+
+        let captured = events.borrow();
+        assert_eq!(captured.len(), 1);
+        assert!(matches!(
+            &captured[0],
+            RioEvent::ClipboardStore(ClipboardType::Clipboard, text) if text == "hello"
         ));
     }
 
