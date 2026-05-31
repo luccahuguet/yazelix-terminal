@@ -1349,15 +1349,8 @@ impl GridGlyphRasterizer {
             .entry((ch, style_flags, route_id))
             .or_insert_with(|| {
                 let span_style = span_style_for_flags(style_flags);
-                #[cfg(target_os = "macos")]
                 let (id, emoji) =
                     font_library.resolve_font_for_char(ch, &span_style, Some(route_id));
-                #[cfg(not(target_os = "macos"))]
-                let (id, emoji) = {
-                    let lib = font_library.inner.read();
-                    lib.find_best_font_match(ch, &span_style, Some(route_id))
-                        .unwrap_or((0, false))
-                };
                 (id as u32, emoji)
             })
     }
@@ -2916,6 +2909,28 @@ mod tests {
         assert_eq!(
             cursor_sprite_cell_size(CursorRenderStyle::Bar, extent, 8, 18),
             (8, 54)
+        );
+    }
+
+    #[test]
+    #[cfg(not(target_os = "macos"))]
+    // Defends: Linux grid rendering uses the same lazy fallback discovery as Sugarloaf font resolution.
+    fn grid_font_resolution_discovers_missing_primary_glyphs() {
+        let (font_library, _errors) =
+            FontLibrary::new(rio_backend::sugarloaf::font::SugarloafFonts::default());
+        let mut rasterizer = GridGlyphRasterizer::new();
+        let starting_len = font_library.inner.read().inner.len();
+
+        let (font_id, _) = rasterizer.resolve_font('\u{6C34}', 0, &font_library, 0);
+
+        assert_ne!(
+            font_id,
+            rio_backend::sugarloaf::font::FONT_ID_REGULAR as u32,
+            "a CJK glyph missing from Cascadia Code NF should resolve to a fallback font"
+        );
+        assert!(
+            font_library.inner.read().inner.len() > starting_len,
+            "fallback discovery should register the selected font for reuse"
         );
     }
 }
