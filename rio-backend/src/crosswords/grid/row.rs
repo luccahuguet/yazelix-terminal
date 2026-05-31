@@ -9,6 +9,16 @@ use std::cmp::max;
 use std::ops::{Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo, RangeToInclusive};
 use std::{ptr, slice};
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum SemanticZone {
+    #[default]
+    None,
+    Prompt,
+    PromptContinuation,
+    Input,
+    Output,
+}
+
 /// A row in the grid.
 #[derive(Clone, Debug)]
 pub struct Row<T> {
@@ -27,6 +37,9 @@ pub struct Row<T> {
 
     pub has_extras: bool,
 
+    /// Shell semantic zone from OSC 133 prompt integration.
+    pub semantic_zone: SemanticZone,
+
     /// Per-row dirty bit set on every write through `IndexMut` /
     /// `last_mut` / `iter_mut` / `reset` / `append*` / `front_split_off`.
     /// Read + cleared by the renderer's snapshot path so it can copy
@@ -43,6 +56,7 @@ impl<T> Default for Row<T> {
             occ: 0,
             kitty_virtual_placeholder: false,
             has_extras: false,
+            semantic_zone: SemanticZone::None,
             dirty: true,
         }
     }
@@ -81,6 +95,7 @@ impl<T: Clone + Default> Row<T> {
             occ: 0,
             kitty_virtual_placeholder: false,
             has_extras: false,
+            semantic_zone: SemanticZone::None,
             dirty: true,
         }
     }
@@ -97,6 +112,7 @@ impl<T: Clone + Default> Row<T> {
         self.occ = src.occ;
         self.kitty_virtual_placeholder = src.kitty_virtual_placeholder;
         self.has_extras = src.has_extras;
+        self.semantic_zone = src.semantic_zone;
     }
 
     /// Increase the number of columns in the row.
@@ -154,6 +170,7 @@ impl<T: Clone + Default> Row<T> {
         self.occ = 0;
         self.kitty_virtual_placeholder = false;
         self.has_extras = false;
+        self.semantic_zone = SemanticZone::None;
         self.dirty = true;
     }
 }
@@ -167,6 +184,7 @@ impl<T> Row<T> {
             occ,
             kitty_virtual_placeholder: false,
             has_extras: true,
+            semantic_zone: SemanticZone::None,
             dirty: true,
         }
     }

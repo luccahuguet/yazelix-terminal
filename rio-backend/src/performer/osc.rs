@@ -15,6 +15,11 @@ use crate::crosswords::square::Hyperlink;
 use crate::event::{ProgressReport, ProgressState};
 use crate::simd_utf8;
 
+use super::handler::{
+    SemanticPrompt, SemanticPromptAction, SemanticPromptClick, SemanticPromptKind,
+    SemanticPromptRedraw,
+};
+
 /// Either a concrete color value or a query for the current value.
 pub(super) enum ColorSpec {
     Set(ColorRgb),
@@ -40,6 +45,10 @@ pub(super) enum ClipboardOp<'a> {
 pub(super) enum PaletteReset {
     All,
     Indices(Vec<u8>),
+}
+
+fn parse_i32(input: &[u8]) -> Option<i32> {
+    simd_utf8::from_utf8_fast(input).ok()?.parse().ok()
 }
 
 /// Parse an `xterm`-style color value (`#rgb`, `#rrggbb`, `rgb:r/g/b`).
@@ -206,6 +215,93 @@ pub(super) fn parse_progress_report(params: &[&[u8]]) -> Option<ProgressReport> 
     Some(ProgressReport { state, progress })
 }
 
+/// OSC 133 — semantic prompt and command-zone markers.
+pub(super) fn parse_semantic_prompt(params: &[&[u8]]) -> Option<SemanticPrompt> {
+    let action = match *params.get(1)? {
+        b"L" => SemanticPromptAction::FreshLine,
+        b"A" => SemanticPromptAction::FreshLineNewPrompt,
+        b"N" => SemanticPromptAction::NewCommand,
+        b"P" => SemanticPromptAction::PromptStart,
+        b"B" => SemanticPromptAction::EndPromptStartInput,
+        b"I" => SemanticPromptAction::EndPromptStartInputTerminateEol,
+        b"C" => SemanticPromptAction::EndInputStartOutput,
+        b"D" => SemanticPromptAction::EndCommand,
+        _ => return None,
+    };
+
+    let mut prompt = SemanticPrompt::new(action);
+    for (idx, option) in params.iter().skip(2).enumerate() {
+        if matches!(action, SemanticPromptAction::EndCommand)
+            && idx == 0
+            && !option.contains(&b'=')
+        {
+            prompt.exit_code = parse_i32(option);
+            continue;
+        }
+
+        let Some(eq_idx) = option.iter().position(|b| *b == b'=') else {
+            continue;
+        };
+        let key = &option[..eq_idx];
+        let value = &option[eq_idx + 1..];
+
+        match key {
+            b"aid" => prompt.aid = Some(simd_utf8::from_utf8_lossy_fast(value)),
+            b"k" => prompt.prompt_kind = parse_semantic_prompt_kind(value),
+            b"cl" => prompt.click = parse_semantic_prompt_click(value),
+            b"click_events" => prompt.click_events = parse_bool(value),
+            b"redraw" => prompt.redraw = parse_semantic_prompt_redraw(value),
+            b"cmdline" => {
+                prompt.command_line = Some(simd_utf8::from_utf8_lossy_fast(value))
+            }
+            b"cmdline_url" => {
+                prompt.command_line_url = Some(simd_utf8::from_utf8_lossy_fast(value))
+            }
+            b"err" => prompt.error = Some(simd_utf8::from_utf8_lossy_fast(value)),
+            _ => {}
+        }
+    }
+
+    Some(prompt)
+}
+
+fn parse_bool(input: &[u8]) -> Option<bool> {
+    match input {
+        b"0" => Some(false),
+        b"1" => Some(true),
+        _ => None,
+    }
+}
+
+fn parse_semantic_prompt_kind(input: &[u8]) -> Option<SemanticPromptKind> {
+    match input {
+        b"i" => Some(SemanticPromptKind::Initial),
+        b"r" => Some(SemanticPromptKind::Right),
+        b"c" => Some(SemanticPromptKind::Continuation),
+        b"s" => Some(SemanticPromptKind::Secondary),
+        _ => None,
+    }
+}
+
+fn parse_semantic_prompt_click(input: &[u8]) -> Option<SemanticPromptClick> {
+    match input {
+        b"line" => Some(SemanticPromptClick::Line),
+        b"m" => Some(SemanticPromptClick::Multiple),
+        b"v" => Some(SemanticPromptClick::ConservativeVertical),
+        b"w" => Some(SemanticPromptClick::SmartVertical),
+        _ => None,
+    }
+}
+
+fn parse_semantic_prompt_redraw(input: &[u8]) -> Option<SemanticPromptRedraw> {
+    match input {
+        b"0" => Some(SemanticPromptRedraw::False),
+        b"1" => Some(SemanticPromptRedraw::True),
+        b"last" => Some(SemanticPromptRedraw::Last),
+        _ => None,
+    }
+}
+
 /// OSC 10/11/12: dynamic color set/query, applied to consecutive named
 /// colors starting at `dynamic_code - 10`.
 pub(super) fn parse_dynamic_colors(params: &[&[u8]]) -> Option<Vec<DynamicColorEntry>> {
@@ -285,4 +381,49 @@ pub(super) fn parse_palette_reset(params: &[&[u8]]) -> PaletteReset {
     }
     let indices = params[1..].iter().filter_map(|p| parse_number(p)).collect();
     PaletteReset::Indices(indices)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    // Defends: OSC 133 shell prompt metadata is parsed without leaking into the unhandled OSC path.
+    fn semantic_prompt_parses_prompt_options() {
+        let prompt = parse_semantic_prompt(&[
+            b"133".as_slice(),
+            b"A".as_slice(),
+            b"aid=abc".as_slice(),
+            b"cl=line".as_slice(),
+            b"redraw=last".as_slice(),
+            b"click_events=1".as_slice(),
+        ])
+        .unwrap();
+
+        assert_eq!(prompt.action, SemanticPromptAction::FreshLineNewPrompt);
+        assert_eq!(prompt.aid.as_deref(), Some("abc"));
+        assert_eq!(prompt.click, Some(SemanticPromptClick::Line));
+        assert_eq!(prompt.redraw, Some(SemanticPromptRedraw::Last));
+        assert_eq!(prompt.click_events, Some(true));
+    }
+
+    #[test]
+    // Defends: command-finish markers keep their optional exit code, matching Ghostty shell integration.
+    fn semantic_prompt_parses_end_command_exit_code() {
+        let prompt = parse_semantic_prompt(&[
+            b"133".as_slice(),
+            b"D".as_slice(),
+            b"12".as_slice(),
+        ])
+        .unwrap();
+
+        assert_eq!(prompt.action, SemanticPromptAction::EndCommand);
+        assert_eq!(prompt.exit_code, Some(12));
+    }
+
+    #[test]
+    // Defends: malformed or unknown OSC 133 actions remain unsupported instead of creating bogus state.
+    fn semantic_prompt_rejects_unknown_action() {
+        assert!(parse_semantic_prompt(&[b"133".as_slice(), b"Z".as_slice()]).is_none());
+    }
 }

@@ -88,6 +88,72 @@ pub enum ScpUpdateMode {
     PresentationToData,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SemanticPromptAction {
+    FreshLine,
+    FreshLineNewPrompt,
+    NewCommand,
+    PromptStart,
+    EndPromptStartInput,
+    EndPromptStartInputTerminateEol,
+    EndInputStartOutput,
+    EndCommand,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SemanticPromptKind {
+    Initial,
+    Right,
+    Continuation,
+    Secondary,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SemanticPromptClick {
+    Line,
+    Multiple,
+    ConservativeVertical,
+    SmartVertical,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SemanticPromptRedraw {
+    True,
+    False,
+    Last,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemanticPrompt {
+    pub action: SemanticPromptAction,
+    pub prompt_kind: Option<SemanticPromptKind>,
+    pub aid: Option<String>,
+    pub click: Option<SemanticPromptClick>,
+    pub click_events: Option<bool>,
+    pub redraw: Option<SemanticPromptRedraw>,
+    pub exit_code: Option<i32>,
+    pub command_line: Option<String>,
+    pub command_line_url: Option<String>,
+    pub error: Option<String>,
+}
+
+impl SemanticPrompt {
+    pub fn new(action: SemanticPromptAction) -> Self {
+        Self {
+            action,
+            prompt_kind: None,
+            aid: None,
+            click: None,
+            click_events: None,
+            redraw: None,
+            exit_code: None,
+            command_line: None,
+            command_line_url: None,
+            error: None,
+        }
+    }
+}
+
 pub trait Handler {
     /// OSC to set window title.
     fn set_title(&mut self, _: Option<String>) {}
@@ -182,6 +248,9 @@ pub trait Handler {
 
     /// Desktop notification (OSC 9 / OSC 777).
     fn desktop_notification(&mut self, _title: String, _body: String) {}
+
+    /// Shell semantic prompt/command zones (OSC 133).
+    fn semantic_prompt(&mut self, _prompt: SemanticPrompt) {}
 
     /// Substitute char under cursor.
     fn substitute(&mut self) {}
@@ -1131,6 +1200,12 @@ impl<U: Handler> Perform for Performer<'_, U> {
             b"110" => self.handler.reset_color(NamedColor::Foreground as usize),
             b"111" => self.handler.reset_color(NamedColor::Background as usize),
             b"112" => self.handler.reset_color(NamedColor::Cursor as usize),
+
+            // OSC 133 — semantic shell prompt/input/output zones.
+            b"133" => match osc::parse_semantic_prompt(params) {
+                Some(prompt) => self.handler.semantic_prompt(prompt),
+                None => unhandled(params),
+            },
 
             // OSC 1337 — iTerm2 inline image protocol.
             b"1337" => {
@@ -2125,6 +2200,33 @@ mod tests {
         // Test invalid hex — skipped, empty response
         let response = process_xtgettcap_request(b"ZZ");
         assert_eq!(response, "\x1bP0+r\x1b\\");
+    }
+
+    #[test]
+    // Defends: a real OSC 133 byte stream reaches Handler::semantic_prompt through the production performer.
+    fn osc133_dispatches_to_semantic_prompt_handler() {
+        #[derive(Default)]
+        struct TestHandler {
+            prompt: Option<SemanticPrompt>,
+        }
+
+        impl Handler for TestHandler {
+            fn semantic_prompt(&mut self, prompt: SemanticPrompt) {
+                self.prompt = Some(prompt);
+            }
+        }
+
+        let mut state = ProcessorState::default();
+        let mut handler = TestHandler::default();
+        let mut performer = Performer::new(&mut state, &mut handler);
+        let mut parser = Parser::default();
+
+        parser.advance(&mut performer, b"\x1b]133;A;aid=abc;cl=line\x07");
+
+        let prompt = handler.prompt.expect("OSC 133 should dispatch");
+        assert_eq!(prompt.action, SemanticPromptAction::FreshLineNewPrompt);
+        assert_eq!(prompt.aid.as_deref(), Some("abc"));
+        assert_eq!(prompt.click, Some(SemanticPromptClick::Line));
     }
 
     #[test]

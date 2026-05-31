@@ -42,14 +42,16 @@ use crate::crosswords::grid::{Dimensions, Grid, Scroll};
 use crate::crosswords::square::{CellFlags, Wide};
 use crate::event::WindowId;
 use crate::event::{EventListener, RioEvent, TerminalDamage};
-use crate::performer::handler::Handler;
+use crate::performer::handler::{
+    Handler, SemanticPrompt, SemanticPromptAction, SemanticPromptKind,
+};
 use crate::performer::parser::Params;
 use crate::selection::{Selection, SelectionRange, SelectionType};
 use crate::simd_utf8;
 use attr::*;
 use base64::{engine::general_purpose, Engine as _};
 use bitflags::bitflags;
-use grid::row::Row;
+use grid::row::{Row, SemanticZone};
 use pos::{
     Boundary, CharsetIndex, Column, Cursor, CursorState, Direction, Line, Pos, Side,
 };
@@ -428,6 +430,7 @@ where
     mode: Mode,
     pub vi_mode_cursor: ViModeCursor,
     semantic_escape_chars: String,
+    semantic_zone: SemanticZone,
     pub grid: Grid<Square>,
     inactive_grid: Grid<Square>,
     scroll_region: Range<Line>,
@@ -490,6 +493,7 @@ impl<U: EventListener> Crosswords<U> {
         Crosswords {
             vi_mode_cursor: ViModeCursor::new(grid.cursor.pos),
             semantic_escape_chars,
+            semantic_zone: SemanticZone::None,
             selection: None,
             grid,
             inactive_grid: alt,
@@ -932,6 +936,58 @@ impl<U: EventListener> Crosswords<U> {
     }
 
     #[inline]
+    pub fn current_semantic_zone(&self) -> SemanticZone {
+        self.semantic_zone
+    }
+
+    #[inline]
+    pub fn row_semantic_zone(&self, line: Line) -> SemanticZone {
+        self.grid[line].semantic_zone
+    }
+
+    #[inline]
+    fn set_semantic_zone(&mut self, zone: SemanticZone) {
+        self.semantic_zone = zone;
+        self.mark_cursor_semantic_zone(zone);
+    }
+
+    #[inline]
+    fn mark_cursor_semantic_zone(&mut self, zone: SemanticZone) {
+        if matches!(zone, SemanticZone::None) {
+            return;
+        }
+
+        let row = self.grid.cursor.pos.row;
+        if self.grid[row].semantic_zone != zone {
+            self.grid[row].semantic_zone = zone;
+            self.grid[row].dirty = true;
+            self.damage.damage_line(row.0 as usize);
+        }
+    }
+
+    #[inline]
+    fn semantic_prompt_zone(kind: Option<SemanticPromptKind>) -> SemanticZone {
+        match kind.unwrap_or(SemanticPromptKind::Initial) {
+            SemanticPromptKind::Initial | SemanticPromptKind::Right => {
+                SemanticZone::Prompt
+            }
+            SemanticPromptKind::Continuation | SemanticPromptKind::Secondary => {
+                SemanticZone::PromptContinuation
+            }
+        }
+    }
+
+    #[inline]
+    fn semantic_prompt_fresh_line(&mut self) {
+        if self.grid.cursor.pos.col == Column(0) && !self.grid.cursor.should_wrap {
+            return;
+        }
+
+        self.carriage_return();
+        self.linefeed();
+    }
+
+    #[inline]
     pub fn wrapline(&mut self) {
         if !self.mode.contains(Mode::LINE_WRAP) {
             return;
@@ -1141,6 +1197,7 @@ impl<U: EventListener> Crosswords<U> {
             let row = self.grid.cursor.pos.row;
             self.grid[row].has_extras = true;
         }
+        self.mark_cursor_semantic_zone(self.semantic_zone);
     }
 
     /// If the previous cell is a narrow, text-presentation emoji base whose
@@ -2555,6 +2612,31 @@ impl<U: EventListener> Handler for Crosswords<U> {
     fn set_current_directory(&mut self, path: std::path::PathBuf) {
         trace!("Setting working directory {:?}", path);
         self.current_directory = Some(path);
+    }
+
+    fn semantic_prompt(&mut self, prompt: SemanticPrompt) {
+        match prompt.action {
+            SemanticPromptAction::FreshLine => self.semantic_prompt_fresh_line(),
+            SemanticPromptAction::FreshLineNewPrompt => {
+                self.semantic_prompt_fresh_line();
+                self.set_semantic_zone(Self::semantic_prompt_zone(prompt.prompt_kind));
+            }
+            SemanticPromptAction::NewCommand => {
+                self.semantic_prompt_fresh_line();
+                self.set_semantic_zone(Self::semantic_prompt_zone(prompt.prompt_kind));
+            }
+            SemanticPromptAction::PromptStart => {
+                self.set_semantic_zone(Self::semantic_prompt_zone(prompt.prompt_kind));
+            }
+            SemanticPromptAction::EndPromptStartInput
+            | SemanticPromptAction::EndPromptStartInputTerminateEol => {
+                self.set_semantic_zone(SemanticZone::Input);
+            }
+            SemanticPromptAction::EndInputStartOutput
+            | SemanticPromptAction::EndCommand => {
+                self.set_semantic_zone(SemanticZone::Output);
+            }
+        }
     }
 
     #[inline]
@@ -4552,6 +4634,55 @@ mod tests {
         let size = CrosswordsSize::new(4, 4);
         let window_id = crate::event::WindowId::from(0);
         Crosswords::new(size, CursorShape::Block, VoidListener {}, window_id, 0, 10)
+    }
+
+    #[test]
+    // Defends: OSC 133 prompt/input/output state is durable row metadata, not only a parser side effect.
+    fn semantic_prompt_marks_prompt_input_and_output_rows() {
+        let mut term = make_crosswords();
+
+        Handler::semantic_prompt(
+            &mut term,
+            SemanticPrompt::new(SemanticPromptAction::FreshLineNewPrompt),
+        );
+        Handler::input_str(&mut term, "$ ");
+        assert_eq!(term.row_semantic_zone(Line(0)), SemanticZone::Prompt);
+
+        Handler::semantic_prompt(
+            &mut term,
+            SemanticPrompt::new(SemanticPromptAction::EndPromptStartInput),
+        );
+        Handler::input_str(&mut term, "x");
+        assert_eq!(term.row_semantic_zone(Line(0)), SemanticZone::Input);
+
+        Handler::semantic_prompt(
+            &mut term,
+            SemanticPrompt::new(SemanticPromptAction::EndInputStartOutput),
+        );
+        Handler::linefeed(&mut term);
+        Handler::carriage_return(&mut term);
+        Handler::input_str(&mut term, "ok");
+        assert_eq!(term.row_semantic_zone(Line(1)), SemanticZone::Output);
+    }
+
+    #[test]
+    // Defends: prompt kind k=s/k=c creates continuation metadata for multi-line prompts.
+    fn semantic_prompt_marks_continuation_prompts() {
+        let mut term = make_crosswords();
+        let mut prompt = SemanticPrompt::new(SemanticPromptAction::PromptStart);
+        prompt.prompt_kind = Some(SemanticPromptKind::Secondary);
+
+        Handler::semantic_prompt(&mut term, prompt);
+        Handler::input_str(&mut term, "> ");
+
+        assert_eq!(
+            term.current_semantic_zone(),
+            SemanticZone::PromptContinuation
+        );
+        assert_eq!(
+            term.row_semantic_zone(Line(0)),
+            SemanticZone::PromptContinuation
+        );
     }
 
     // Minimum-valid simple glyph: one contour, one on-curve point.
