@@ -79,6 +79,7 @@ The first manifest covers:
 
 - OSC 8 hyperlinks
 - OSC 52 clipboard query
+- Kitty OSC 21 keyed color control
 - OSC 133 semantic prompt regions
 - Kitty OSC 66 text sizing
 - Kitty OSC 99 desktop notification

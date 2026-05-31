@@ -119,7 +119,8 @@ Required:
 
 - OSC 8 hyperlinks with correct span lifetime, line wrapping, and reset behavior
 - OSC 52 clipboard read/write policy with visible, secure failure behavior
-- dynamic colors for foreground, background, cursor, palette set/query/reset
+- dynamic colors for foreground, background, cursor, and palette
+  set/query/reset, including Kitty OSC 21 keyed color control
 - OSC 9/777 notifications and OSC 9;4 progress reporting, gated by sane user
   policy
 - OSC 22 mouse pointer shape where supported by the platform

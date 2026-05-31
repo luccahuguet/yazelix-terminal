@@ -38,6 +38,18 @@ pub(super) struct DynamicColorEntry {
     pub spec: ColorSpec,
 }
 
+pub(super) enum KittyColorSpec {
+    Set(ColorRgb),
+    Query,
+    Reset,
+}
+
+pub(super) struct KittyColorEntry {
+    pub key: String,
+    pub index: Option<usize>,
+    pub spec: KittyColorSpec,
+}
+
 pub(super) enum ClipboardOp<'a> {
     Load { kind: u8 },
     Store { kind: u8, payload: &'a [u8] },
@@ -52,14 +64,17 @@ fn parse_i32(input: &[u8]) -> Option<i32> {
     simd_utf8::from_utf8_fast(input).ok()?.parse().ok()
 }
 
-/// Parse an `xterm`-style color value (`#rgb`, `#rrggbb`, `rgb:r/g/b`).
+/// Parse an `xterm`-style color value (`#rgb`, `#rrggbb`, `rgb:r/g/b`,
+/// `rgbi:r/g/b`, or a small set of standard color names).
 pub(super) fn xparse_color(color: &[u8]) -> Option<ColorRgb> {
     if !color.is_empty() && color[0] == b'#' {
         parse_legacy_color(&color[1..])
     } else if color.len() >= 4 && &color[..4] == b"rgb:" {
         parse_rgb_color(&color[4..])
+    } else if color.len() >= 5 && &color[..5] == b"rgbi:" {
+        parse_rgbi_color(&color[5..])
     } else {
-        None
+        parse_named_color(color)
     }
 }
 
@@ -89,6 +104,55 @@ fn parse_rgb_color(color: &[u8]) -> Option<ColorRgb> {
         r: scale(colors[0])?,
         g: scale(colors[1])?,
         b: scale(colors[2])?,
+    })
+}
+
+/// Parse colors in `rgbi:r/g/b` format, where each channel is 0.0..=1.0.
+fn parse_rgbi_color(color: &[u8]) -> Option<ColorRgb> {
+    let colors = simd_utf8::from_utf8_fast(color)
+        .ok()?
+        .split('/')
+        .collect::<Vec<_>>();
+
+    if colors.len() != 3 {
+        return None;
+    }
+
+    let scale = |input: &str| {
+        let value = input.parse::<f32>().ok()?;
+        if !(0.0..=1.0).contains(&value) {
+            return None;
+        }
+        Some((value * 255.0).round() as u8)
+    };
+
+    Some(ColorRgb {
+        r: scale(colors[0])?,
+        g: scale(colors[1])?,
+        b: scale(colors[2])?,
+    })
+}
+
+fn parse_named_color(color: &[u8]) -> Option<ColorRgb> {
+    let color = simd_utf8::from_utf8_fast(color).ok()?;
+    let rgb = match color.to_ascii_lowercase().as_str() {
+        "black" => (0x00, 0x00, 0x00),
+        "red" => (0xff, 0x00, 0x00),
+        "green" => (0x00, 0x80, 0x00),
+        "yellow" => (0xff, 0xff, 0x00),
+        "blue" => (0x00, 0x00, 0xff),
+        "magenta" | "fuchsia" => (0xff, 0x00, 0xff),
+        "cyan" | "aqua" => (0x00, 0xff, 0xff),
+        "white" => (0xff, 0xff, 0xff),
+        "gray" | "grey" => (0x80, 0x80, 0x80),
+        "aliceblue" => (0xf0, 0xf8, 0xff),
+        _ => return None,
+    };
+
+    Some(ColorRgb {
+        r: rgb.0,
+        g: rgb.1,
+        b: rgb.2,
     })
 }
 
@@ -161,6 +225,55 @@ pub(super) fn parse_palette_entries(params: &[&[u8]]) -> Option<Vec<PaletteEntry
         out.push(PaletteEntry { index, spec });
     }
     Some(out)
+}
+
+/// OSC 21: Kitty keyed color protocol.
+pub(super) fn parse_kitty_color_entries(
+    params: &[&[u8]],
+) -> Option<Vec<KittyColorEntry>> {
+    if params.len() < 2 {
+        return None;
+    }
+
+    let mut out = Vec::with_capacity(params.len() - 1);
+    for param in &params[1..] {
+        if param.is_empty() {
+            continue;
+        }
+
+        let (key, value) = match param.iter().position(|b| *b == b'=') {
+            Some(position) => (&param[..position], Some(&param[position + 1..])),
+            None => (*param, None),
+        };
+        if key.is_empty() {
+            continue;
+        }
+
+        let key = simd_utf8::from_utf8_fast(key).ok()?.to_owned();
+        let index = kitty_color_index(&key);
+        let spec = match value {
+            Some(value) if value == b"?" => KittyColorSpec::Query,
+            Some(value) if value.is_empty() => KittyColorSpec::Reset,
+            Some(value) => match xparse_color(value) {
+                Some(color) => KittyColorSpec::Set(color),
+                None => continue,
+            },
+            None => KittyColorSpec::Reset,
+        };
+
+        out.push(KittyColorEntry { key, index, spec });
+    }
+
+    Some(out)
+}
+
+fn kitty_color_index(key: &str) -> Option<usize> {
+    match key {
+        "foreground" => Some(NamedColor::Foreground as usize),
+        "background" => Some(NamedColor::Background as usize),
+        "cursor" => Some(NamedColor::Cursor as usize),
+        _ => key.parse::<u8>().ok().map(usize::from),
+    }
 }
 
 /// OSC 7: working directory as a `file://` URL.
@@ -535,7 +648,89 @@ pub(super) fn parse_palette_reset(params: &[&[u8]]) -> PaletteReset {
 
 #[cfg(test)]
 mod tests {
+    // Test lane: default
     use super::*;
+
+    #[test]
+    // Defends: Kitty OSC 21 accepts Ghostty-compatible color syntaxes beyond legacy hex.
+    fn kitty_color_parses_rgbi_and_named_colors() {
+        assert_eq!(
+            xparse_color(b"rgbi:1.0/0.5/0.0"),
+            Some(ColorRgb {
+                r: 255,
+                g: 128,
+                b: 0,
+            })
+        );
+        assert_eq!(
+            xparse_color(b"aliceblue"),
+            Some(ColorRgb {
+                r: 0xf0,
+                g: 0xf8,
+                b: 0xff,
+            })
+        );
+    }
+
+    #[test]
+    // Defends: Kitty OSC 21 preserves supported keyed colors and unknown query keys without failing the packet.
+    fn kitty_color_entries_parse_set_query_reset_and_unknown_query() {
+        let entries = parse_kitty_color_entries(&[
+            b"21".as_slice(),
+            b"foreground=?".as_slice(),
+            b"background=rgb:f0/f8/ff".as_slice(),
+            b"cursor=aliceblue".as_slice(),
+            b"cursor_text".as_slice(),
+            b"visual_bell=".as_slice(),
+            b"selection_foreground=#xxxyyzz".as_slice(),
+            b"selection_background=?".as_slice(),
+            b"2=?".as_slice(),
+            b"3=rgbi:1.0/1.0/1.0".as_slice(),
+        ])
+        .unwrap();
+
+        assert_eq!(entries.len(), 8);
+        assert!(matches!(entries[0].spec, KittyColorSpec::Query));
+        assert_eq!(entries[0].index, Some(NamedColor::Foreground as usize));
+        assert!(matches!(
+            entries[1].spec,
+            KittyColorSpec::Set(ColorRgb {
+                r: 0xf0,
+                g: 0xf8,
+                b: 0xff
+            })
+        ));
+        assert_eq!(entries[1].index, Some(NamedColor::Background as usize));
+        assert!(matches!(
+            entries[2].spec,
+            KittyColorSpec::Set(ColorRgb {
+                r: 0xf0,
+                g: 0xf8,
+                b: 0xff
+            })
+        ));
+        assert_eq!(entries[2].index, Some(NamedColor::Cursor as usize));
+        assert!(matches!(entries[3].spec, KittyColorSpec::Reset));
+        assert_eq!(entries[3].key, "cursor_text");
+        assert_eq!(entries[3].index, None);
+        assert!(matches!(entries[4].spec, KittyColorSpec::Reset));
+        assert_eq!(entries[4].key, "visual_bell");
+        assert_eq!(entries[4].index, None);
+        assert!(matches!(entries[5].spec, KittyColorSpec::Query));
+        assert_eq!(entries[5].key, "selection_background");
+        assert_eq!(entries[5].index, None);
+        assert!(matches!(entries[6].spec, KittyColorSpec::Query));
+        assert_eq!(entries[6].index, Some(2));
+        assert!(matches!(
+            entries[7].spec,
+            KittyColorSpec::Set(ColorRgb {
+                r: 255,
+                g: 255,
+                b: 255
+            })
+        ));
+        assert_eq!(entries[7].index, Some(3));
+    }
 
     #[test]
     // Defends: OSC 133 shell prompt metadata is parsed without leaking into the unhandled OSC path.

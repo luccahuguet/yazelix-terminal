@@ -2339,6 +2339,47 @@ impl<U: EventListener> Handler for Crosswords<U> {
     }
 
     #[inline]
+    fn kitty_color_sequence(
+        &mut self,
+        key: String,
+        index: Option<usize>,
+        terminator: &str,
+    ) {
+        debug!(
+            "Requested write of Kitty color sequence for key {}: {:?}",
+            key, index
+        );
+
+        match index {
+            Some(index) => {
+                let terminator = terminator.to_owned();
+                self.event_proxy.send_event(
+                    RioEvent::ColorRequest(
+                        self.route_id,
+                        index,
+                        Arc::new(move |color| {
+                            format!(
+                                "\x1b]21;{}=rgb:{:02x}/{:02x}/{:02x}{}",
+                                key, color.r, color.g, color.b, terminator
+                            )
+                        }),
+                    ),
+                    self.window_id,
+                );
+            }
+            None => {
+                self.event_proxy.send_event(
+                    RioEvent::PtyWrite(
+                        self.route_id,
+                        format!("\x1b]21;{}=?{}", key, terminator),
+                    ),
+                    self.window_id,
+                );
+            }
+        }
+    }
+
+    #[inline]
     fn goto(&mut self, line: Line, col: Column) {
         trace!("Going to: line={}, col={}", line, col);
         let (y_offset, max_y) = if self.mode.contains(Mode::ORIGIN) {

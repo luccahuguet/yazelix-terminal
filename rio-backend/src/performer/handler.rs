@@ -427,6 +427,9 @@ pub trait Handler {
     /// Respond to a color query escape sequence.
     fn dynamic_color_sequence(&mut self, _: String, _: usize, _: &str) {}
 
+    /// Respond to a Kitty keyed color query escape sequence.
+    fn kitty_color_sequence(&mut self, _: String, _: Option<usize>, _: &str) {}
+
     /// Reset an indexed color to original value.
     fn reset_color(&mut self, _: usize) {}
 
@@ -1211,6 +1214,30 @@ impl<U: Handler> Perform for Performer<'_, U> {
                                 entry.index as usize,
                                 terminator,
                             ),
+                        }
+                    }
+                }
+                None => unhandled(params),
+            },
+
+            // Kitty keyed color protocol.
+            b"21" => match osc::parse_kitty_color_entries(params) {
+                Some(entries) => {
+                    for entry in entries {
+                        match entry.spec {
+                            osc::KittyColorSpec::Set(c) => {
+                                if let Some(index) = entry.index {
+                                    self.handler.set_color(index, c);
+                                }
+                            }
+                            osc::KittyColorSpec::Query => self
+                                .handler
+                                .kitty_color_sequence(entry.key, entry.index, terminator),
+                            osc::KittyColorSpec::Reset => {
+                                if let Some(index) = entry.index {
+                                    self.handler.reset_color(index);
+                                }
+                            }
                         }
                     }
                 }
@@ -2233,6 +2260,7 @@ fn get_termcap_capability(name: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    // Test lane: default
     use super::*;
 
     #[test]
@@ -2269,6 +2297,66 @@ mod tests {
         // Test invalid hex — skipped, empty response
         let response = process_xtgettcap_request(b"ZZ");
         assert_eq!(response, "\x1bP0+r\x1b\\");
+    }
+
+    #[test]
+    // Defends: a real OSC 21 byte stream reaches color set/reset/query handlers with Kitty keys intact.
+    fn osc21_dispatches_to_kitty_color_handlers() {
+        #[derive(Default)]
+        struct TestHandler {
+            sets: Vec<(usize, ColorRgb)>,
+            resets: Vec<usize>,
+            queries: Vec<(String, Option<usize>, String)>,
+        }
+
+        impl Handler for TestHandler {
+            fn set_color(&mut self, index: usize, color: ColorRgb) {
+                self.sets.push((index, color));
+            }
+
+            fn reset_color(&mut self, index: usize) {
+                self.resets.push(index);
+            }
+
+            fn kitty_color_sequence(
+                &mut self,
+                key: String,
+                index: Option<usize>,
+                terminator: &str,
+            ) {
+                self.queries.push((key, index, terminator.to_owned()));
+            }
+        }
+
+        let mut state = ProcessorState::default();
+        let mut handler = TestHandler::default();
+        let mut performer = Performer::new(&mut state, &mut handler);
+        let mut parser = Parser::default();
+
+        parser.advance(
+            &mut performer,
+            b"\x1b]21;foreground=?;background=#010203;cursor;selection_background=?\x07",
+        );
+
+        assert_eq!(
+            handler.sets,
+            vec![(
+                NamedColor::Background as usize,
+                ColorRgb { r: 1, g: 2, b: 3 }
+            )]
+        );
+        assert_eq!(handler.resets, vec![NamedColor::Cursor as usize]);
+        assert_eq!(
+            handler.queries,
+            vec![
+                (
+                    "foreground".to_owned(),
+                    Some(NamedColor::Foreground as usize),
+                    "\x07".to_owned()
+                ),
+                ("selection_background".to_owned(), None, "\x07".to_owned())
+            ]
+        );
     }
 
     #[test]

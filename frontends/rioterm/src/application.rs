@@ -738,12 +738,6 @@ impl ApplicationHandler<EventPayload> for Application<'_> {
                     let terminal = item.val.terminal.lock();
                     let color: ColorRgb = match terminal.colors()[index] {
                         Some(color) => ColorRgb::from_color_arr(color),
-                        // Ignore cursor color requests unless it was changed.
-                        None if index
-                            == crate::crosswords::NamedColor::Cursor as usize =>
-                        {
-                            return
-                        }
                         None => ColorRgb::from_color_arr(renderer_color),
                     };
                     drop(terminal);
