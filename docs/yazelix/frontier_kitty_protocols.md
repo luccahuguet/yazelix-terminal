@@ -246,6 +246,10 @@ Recommended first step:
   remote receive behavior, password bypass, path validation, symlink handling,
   size limits, cancel behavior, and audit/logging
 
+Policy:
+
+- `docs/yazelix/kitty_file_transfer_policy.md`
+
 ### OSC 72 Drag And Drop
 
 Why: this is very modern and potentially excellent for TUI apps, but Kitty marks
