@@ -180,9 +180,10 @@ required for the first usable Yazelix terminal:
   sessions for regular files and directories, plus user-approved
   local-to-remote `receive` reads with path preview, bounded traversal,
   metadata listing, one-file-at-a-time regular file streaming, and zlib
-  compression for regular-file data; symlinks, links, richer metadata
+  compression for regular-file data. Symlinks, links, richer metadata
   preservation, destination chooser UX, rsync/delta behavior, and trusted
-  bypass remain out of scope until their security policy is implemented
+  bypass are explicit policy rejections until separate trust and test slices
+  exist
 - advanced terminal annotations or command-output navigation surfaces
 - richer prompt/command region actions once OSC 133 state is stable
 - image animation beyond what current Kitty graphics support needs for Yazelix
@@ -197,11 +198,6 @@ not yet complete:
 - `yzt-7p3.40`: OSC 5522 rich clipboard handles text/plain-compatible payloads,
   but still needs arbitrary MIME/platform clipboard work before it matches the
   full modern protocol surface
-- `yzt-7p3.41`: frame-time instrumentation exists, but comparable Ghostty
-  frame runs, release-package runs, and optional GPU utilization evidence still
-  need to be collected
-- `yzt-7p3.42`: Kitty file transfer full-spec features that expand filesystem
-  trust still need explicit policy and implementation or rejection
 - `yzt-7p3.43`: Kitty keyboard lock-state and niche-key gaps need either
   implementation through platform APIs or documented impossibility
 - `yzt-7p3.44`: OSC 72 drag-and-drop remains unadvertised until the spec and OS

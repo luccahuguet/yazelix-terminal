@@ -103,18 +103,22 @@ Path rules:
 
 Symlink and hardlink rules:
 
-- initial support should reject symlinks and hardlinks with a clear unsupported
+- current support rejects symlinks and hardlinks with a clear unsupported
   status
-- a later implementation may create symlinks only when the target is inside the
-  same approved destination root
-- hardlinks should remain unsupported until there is a clear product need
+- a future symlink implementation must prove the link target stays inside the
+  same approved destination root before any link is created
+- hardlinks remain unsupported until there is a clear product need and a policy
+  for cross-device, overwrite, and aliasing behavior
 
 Metadata rules:
 
-- preserve mtime when possible
-- preserve ordinary user read/write/execute bits when safe
-- ignore setuid, setgid, sticky bits, owner, group, ACLs, xattrs, and platform
-  metadata until each has an explicit policy
+- current support preserves transferred bytes, protocol path, file kind, and
+  declared size only
+- current support does not preserve mtime, chmod bits, owner, group, ACLs,
+  xattrs, or platform metadata
+- ordinary mtime and user read/write/execute bits may be added later, but only
+  after tests prove they cannot smuggle setuid, setgid, sticky bits, ownership,
+  or platform-specific authority into the destination tree
 
 ## Reading Files From This Computer
 
@@ -164,8 +168,8 @@ Compression-specific limits:
 ## Bypass Policy
 
 Kitty's spec supports bypassing interactive approval with a shared secret hash.
-Yazelix-terminal should not enable generic SHA256 bypass by default because the
-spec itself warns that hashing does not hide the password from brute force.
+Yazelix-terminal does not enable generic SHA256 bypass because the spec itself
+warns that hashing does not hide the password from brute force.
 
 Policy:
 
@@ -214,9 +218,17 @@ The log must not store file contents or secret bypass material.
 
 4. Optional advanced features
    - zlib compression: implemented for regular-file send and receive data
-   - symlinks constrained to the approved root: not implemented
-   - rsync/delta transfer: not implemented
-   - scoped bypass config: not implemented
+   - destination chooser UI: not implemented; current transfers use the
+     approval-prompted default transfer root only
+   - symlinks constrained to the approved root: explicitly rejected until a
+     separate policy and test slice exists
+   - hardlinks: explicitly rejected until there is a product need
+   - metadata preservation beyond bytes/path/kind/size: explicitly rejected
+     until ordinary mtime/mode semantics are specified and tested
+   - rsync/delta transfer: explicitly rejected because it changes the protocol
+     from append-only staged writes/reads into stateful patching
+   - scoped bypass config: explicitly rejected until trust scope, audit, and
+     revocation are designed
 
 ## Non-Goals
 

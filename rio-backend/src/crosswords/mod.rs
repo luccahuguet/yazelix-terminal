@@ -6279,7 +6279,7 @@ mod tests {
     use crate::event::VoidListener;
     use crate::performer::handler::{
         KittyFileTransferAction, KittyFileTransferCompression, KittyFileTransferFileType,
-        KittyFileTransferTransmission,
+        KittyFileTransferTransmission, Processor,
     };
     use std::cell::RefCell;
     use std::fs;
@@ -7616,6 +7616,27 @@ mod tests {
     }
 
     #[test]
+    // Defends: Kitty shared-secret metadata is not a silent bypass for the terminal approval gate.
+    fn osc5113_file_transfer_password_metadata_still_requires_approval() {
+        let (mut term, events) = make_capturing_crosswords(7);
+        let mut processor = Processor::default();
+
+        processor.advance(
+            &mut term,
+            b"\x1b]5113;ac=send;id=session-1;pw=sha256:ignored\x1b\\",
+        );
+
+        assert!(captured_pty_writes(&events).is_empty());
+        let captured = events.borrow();
+        assert!(captured.iter().any(|event| matches!(
+            event,
+            RioEvent::KittyFileTransferApprovalRequest { route_id: 7, id, .. }
+                if id == "session-1"
+        )));
+        assert_eq!(term.kitty_file_transfer.active_session_count(), 1);
+    }
+
+    #[test]
     // Defends: out-of-order OSC 5113 file data is rejected with a file-scoped status reply.
     fn osc5113_file_transfer_data_without_session_is_rejected() {
         let (mut term, events) = make_capturing_crosswords(7);
@@ -7807,6 +7828,79 @@ mod tests {
             .any(|(_, reply)| reply.contains("fid=file_1;st=RUlOVkFM")));
         assert!(!temp_dir.join("escape.txt").exists());
         let _ = fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    // Defends: OSC 5113 deliberately rejects link creation instead of growing partial symlink/hardlink support.
+    fn osc5113_file_transfer_rejects_link_file_types() {
+        let (mut term, events) = make_capturing_crosswords(7);
+        let temp_dir = unique_test_dir("file-transfer-links");
+        let destination_root = temp_dir.join("downloads");
+
+        Handler::kitty_file_transfer(
+            &mut term,
+            kitty_file_transfer(KittyFileTransferAction::Send, "session-1"),
+            "\x1b\\",
+        );
+        point_file_transfer_session_at(&mut term, "session-1", destination_root.clone());
+        term.handle_kitty_file_transfer_approval("session-1", true);
+
+        for (file_id, file_type) in [
+            ("symlink_1", KittyFileTransferFileType::Symlink),
+            ("hardlink_1", KittyFileTransferFileType::Link),
+        ] {
+            let mut file =
+                kitty_file_transfer(KittyFileTransferAction::File, "session-1");
+            file.file_id = Some(file_id.to_owned());
+            file.file_type = file_type;
+            file.name = Some(format!("{file_id}.txt"));
+            Handler::kitty_file_transfer(&mut term, file, "\x1b\\");
+
+            assert!(captured_pty_writes(&events).iter().any(|(_, reply)| reply
+                .contains(&format!(
+                    "fid={file_id};st={};",
+                    encoded_file_transfer_status("ENOSYS:Links are not supported")
+                ))));
+            assert!(!destination_root
+                .join(".staging")
+                .join("session-session-1")
+                .join(format!("{file_id}.txt"))
+                .exists());
+        }
+
+        let _ = fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    // Defends: OSC 5113 rsync/delta mode stays fail-closed until a real policy and implementation exist.
+    fn osc5113_file_transfer_rejects_rsync_transmission() {
+        let (mut term, events) = make_capturing_crosswords(7);
+
+        let mut send = kitty_file_transfer(KittyFileTransferAction::Send, "send-rsync");
+        send.transmission = KittyFileTransferTransmission::Rsync;
+        Handler::kitty_file_transfer(&mut term, send, "\x1b\\");
+
+        let mut receive =
+            kitty_file_transfer(KittyFileTransferAction::Receive, "receive-rsync");
+        receive.transmission = KittyFileTransferTransmission::Rsync;
+        receive.size = Some(1);
+        Handler::kitty_file_transfer(&mut term, receive, "\x1b\\");
+
+        let status = encoded_file_transfer_status(
+            "ENOSYS:Rsync file transfers are not implemented",
+        );
+        let replies = captured_pty_writes(&events);
+        assert!(replies
+            .iter()
+            .any(|(_, reply)| reply.contains(&format!("id=send-rsync;st={status};"))));
+        assert!(replies
+            .iter()
+            .any(|(_, reply)| reply.contains(&format!("id=receive-rsync;st={status};"))));
+        assert_eq!(term.kitty_file_transfer.active_session_count(), 0);
+        assert!(!events.borrow().iter().any(|event| matches!(
+            event,
+            RioEvent::KittyFileTransferApprovalRequest { .. }
+        )));
     }
 
     #[test]

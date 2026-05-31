@@ -61,6 +61,10 @@ Already implemented or partially validated in Yazelix-terminal:
   preview, bounded directory traversal, regular file/directory metadata
   listing, and one-file-at-a-time regular file streaming
 - Kitty file transfer zlib compression for regular-file send and receive data
+- Kitty file transfer explicitly rejects symlink/link creation and traversal,
+  rsync/delta transmission, generic shared-secret bypass, destination chooser
+  UX, and metadata preservation beyond bytes/path/kind/size until those
+  features have separate trust policy and tests
 
 Important gaps found during this audit:
 
@@ -73,9 +77,10 @@ Important gaps found during this audit:
   Kitty-frontier work rather than strict Ghostty parity.
 - OSC 72 drag/drop is absent and crosses a security and OS-integration boundary
   that should not be treated as parser-only work.
-- Kitty file transfer still needs symlink/link policy, richer metadata
-  preservation, destination chooser UX, rsync/delta behavior, and any trusted
-  bypass mechanism before it matches Kitty's full spec.
+- Kitty file transfer does not chase Kitty's full advanced filesystem feature
+  surface yet. The safe subset is implemented; links, rsync, bypass, chooser
+  UX, and richer metadata are documented policy rejections instead of silent
+  TODOs.
 
 ## Must
 
