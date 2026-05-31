@@ -30,7 +30,7 @@ Already implemented or partially validated in Yazelix-terminal:
 - Sixel and iTerm2 inline image paths through the renderer
 - OSC 66 parser and cell-width behavior
 - OSC 99 first slice for notification parsing and display
-- OSC 133 first slice for semantic prompt regions
+- OSC 133 semantic prompt regions, prompt navigation, and output selection
 - OSC 52 hardened clipboard policy
 - OSC 21 first slice for foreground, background, cursor, and ANSI palette
   set/query/reset
@@ -106,7 +106,6 @@ Scope:
 
 These already have beads and should stay ahead of new frontier features:
 
-- Complete OSC 133 prompt navigation and selection actions
 - Render OSC 66 scale and fractional text visually
 - Complete OSC 99 lifecycle replies and activation behavior
 - Fix the WGPU Vulkan surface issue on this COSMIC/NVIDIA setup, or clearly

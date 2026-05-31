@@ -1338,6 +1338,42 @@ impl Screen<'_> {
                         self.renderer.scrollbar.notify_scroll(rtid);
                         self.mark_dirty();
                     }
+                    Act::PreviousSemanticPrompt => {
+                        let current = self.context_manager.current_mut();
+                        let rtid = current.rich_text_id;
+                        let mut terminal = current.terminal.lock();
+                        let moved = terminal.goto_previous_semantic_prompt();
+                        drop(terminal);
+
+                        if moved {
+                            self.renderer.scrollbar.notify_scroll(rtid);
+                            self.mark_dirty();
+                        }
+                    }
+                    Act::NextSemanticPrompt => {
+                        let current = self.context_manager.current_mut();
+                        let rtid = current.rich_text_id;
+                        let mut terminal = current.terminal.lock();
+                        let moved = terminal.goto_next_semantic_prompt();
+                        drop(terminal);
+
+                        if moved {
+                            self.renderer.scrollbar.notify_scroll(rtid);
+                            self.mark_dirty();
+                        }
+                    }
+                    Act::SelectSemanticOutput => {
+                        let current = self.context_manager.current_mut();
+                        let mut terminal = current.terminal.lock();
+                        let selection_range = terminal.select_semantic_output();
+                        drop(terminal);
+
+                        if let Some(selection_range) = selection_range {
+                            current.set_selection(Some(selection_range));
+                            self.context_manager.request_render();
+                            self.mark_dirty();
+                        }
+                    }
                     Act::Scroll(delta) => {
                         let current = self.context_manager.current_mut();
                         let rtid = current.rich_text_id;

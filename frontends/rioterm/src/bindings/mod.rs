@@ -252,6 +252,9 @@ impl From<String> for Action {
             "scrollhalfpagedown" => Some(Action::ScrollHalfPageDown),
             "scrolltotop" => Some(Action::ScrollToTop),
             "scrolltobottom" => Some(Action::ScrollToBottom),
+            "previoussemanticprompt" => Some(Action::PreviousSemanticPrompt),
+            "nextsemanticprompt" => Some(Action::NextSemanticPrompt),
+            "selectsemanticoutput" => Some(Action::SelectSemanticOutput),
             "splitright" => Some(Action::SplitRight),
             "splitdown" => Some(Action::SplitDown),
             "selectnextsplit" => Some(Action::SelectNextSplit),
@@ -382,6 +385,15 @@ pub enum Action {
 
     /// Scroll all the way to the bottom.
     ScrollToBottom,
+
+    /// Move to the previous OSC 133 prompt boundary.
+    PreviousSemanticPrompt,
+
+    /// Move to the next OSC 133 prompt boundary.
+    NextSemanticPrompt,
+
+    /// Select the OSC 133 command-output region at or before the cursor.
+    SelectSemanticOutput,
 
     /// Clear the display buffer(s) to remove history.
     ClearHistory,
@@ -1215,6 +1227,7 @@ pub fn platform_key_bindings(_: bool, _: bool, _: ConfigKeyboard) -> Vec<KeyBind
 
 #[cfg(test)]
 mod tests {
+    // Test lane: default
     use super::*;
 
     use rio_window::keyboard::ModifiersState;
@@ -1465,6 +1478,23 @@ mod tests {
             mods,
             &t
         ));
+    }
+
+    #[test]
+    // Defends: OSC 133 prompt/navigation actions are exposed through the user config binding surface.
+    fn semantic_prompt_actions_parse_from_config_strings() {
+        assert_eq!(
+            Action::from(String::from("previousSemanticPrompt")),
+            Action::PreviousSemanticPrompt
+        );
+        assert_eq!(
+            Action::from(String::from("nextSemanticPrompt")),
+            Action::NextSemanticPrompt
+        );
+        assert_eq!(
+            Action::from(String::from("selectSemanticOutput")),
+            Action::SelectSemanticOutput
+        );
     }
 
     #[test]

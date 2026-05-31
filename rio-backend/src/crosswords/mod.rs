@@ -1024,6 +1024,101 @@ impl<U: EventListener> Crosswords<U> {
         self.linefeed();
     }
 
+    fn semantic_navigation_origin(&self) -> Line {
+        if self.mode.contains(Mode::VI) {
+            self.vi_mode_cursor.pos.row
+        } else {
+            self.grid.cursor.pos.row
+        }
+    }
+
+    fn is_semantic_prompt_line(&self, line: Line) -> bool {
+        matches!(self.row_semantic_zone(line), SemanticZone::Prompt)
+    }
+
+    pub fn previous_semantic_prompt_line(&self) -> Option<Line> {
+        let origin = self.semantic_navigation_origin().0;
+        let top = self.grid.topmost_line().0;
+        (top..origin)
+            .rev()
+            .map(Line::from)
+            .find(|line| self.is_semantic_prompt_line(*line))
+    }
+
+    pub fn next_semantic_prompt_line(&self) -> Option<Line> {
+        let origin = self.semantic_navigation_origin().0;
+        let bottom = self.grid.bottommost_line().0;
+        ((origin + 1)..=bottom)
+            .map(Line::from)
+            .find(|line| self.is_semantic_prompt_line(*line))
+    }
+
+    fn goto_semantic_prompt_line(&mut self, line: Line) {
+        let pos = Pos::new(line, Column(0));
+        if self.mode.contains(Mode::VI) {
+            self.vi_goto_pos(pos);
+        } else {
+            self.scroll_to_pos(pos);
+        }
+    }
+
+    pub fn goto_previous_semantic_prompt(&mut self) -> bool {
+        let Some(line) = self.previous_semantic_prompt_line() else {
+            return false;
+        };
+        self.goto_semantic_prompt_line(line);
+        true
+    }
+
+    pub fn goto_next_semantic_prompt(&mut self) -> bool {
+        let Some(line) = self.next_semantic_prompt_line() else {
+            return false;
+        };
+        self.goto_semantic_prompt_line(line);
+        true
+    }
+
+    fn semantic_output_line_at_or_before(&self, origin: Line) -> Option<Line> {
+        let top = self.grid.topmost_line().0;
+        (top..=origin.0)
+            .rev()
+            .map(Line::from)
+            .find(|line| matches!(self.row_semantic_zone(*line), SemanticZone::Output))
+    }
+
+    fn semantic_output_region_around(&self, line: Line) -> (Line, Line) {
+        let top = self.grid.topmost_line();
+        let bottom = self.grid.bottommost_line();
+        let mut start = line;
+        let mut end = line;
+
+        while start > top
+            && matches!(self.row_semantic_zone(start - 1), SemanticZone::Output)
+        {
+            start -= 1;
+        }
+        while end < bottom
+            && matches!(self.row_semantic_zone(end + 1), SemanticZone::Output)
+        {
+            end += 1;
+        }
+
+        (start, end)
+    }
+
+    pub fn select_semantic_output(&mut self) -> Option<SelectionRange> {
+        let origin = self.semantic_navigation_origin();
+        let output_line = self.semantic_output_line_at_or_before(origin)?;
+        let (start, end) = self.semantic_output_region_around(output_line);
+        let mut selection =
+            Selection::new(SelectionType::Lines, Pos::new(start, Column(0)), Side::Left);
+        selection.update(Pos::new(end, self.grid.last_column()), Side::Right);
+        self.selection = Some(selection);
+        let range = self.selection.as_ref().and_then(|s| s.to_range(self))?;
+        self.update_selection_damage(Some(range), self.display_offset());
+        Some(range)
+    }
+
     fn text_sizing_width(&self, sizing: &TextSizing) -> Option<usize> {
         let base_width = sizing
             .width
@@ -5117,6 +5212,52 @@ mod tests {
         assert_eq!(
             term.row_semantic_zone(Line(0)),
             SemanticZone::PromptContinuation
+        );
+    }
+
+    #[test]
+    // Defends: OSC 133 prompt rows are navigable through user-facing actions.
+    fn semantic_prompt_navigation_finds_neighboring_prompt_rows() {
+        let mut term = make_crosswords();
+        term.grid[Line(0)].semantic_zone = SemanticZone::Prompt;
+        term.grid[Line(1)].semantic_zone = SemanticZone::Output;
+        term.grid[Line(2)].semantic_zone = SemanticZone::Output;
+        term.grid[Line(3)].semantic_zone = SemanticZone::Prompt;
+        term.mode.insert(Mode::VI);
+        term.vi_mode_cursor.pos = Pos::new(Line(2), Column(0));
+
+        assert_eq!(term.previous_semantic_prompt_line(), Some(Line(0)));
+        assert_eq!(term.next_semantic_prompt_line(), Some(Line(3)));
+
+        assert!(term.goto_next_semantic_prompt());
+        assert_eq!(term.vi_mode_cursor.pos.row, Line(3));
+
+        assert!(term.goto_previous_semantic_prompt());
+        assert_eq!(term.vi_mode_cursor.pos.row, Line(0));
+    }
+
+    #[test]
+    // Defends: OSC 133 output selection picks the contiguous output block before the cursor.
+    fn semantic_output_selection_uses_contiguous_output_region() {
+        let mut term = make_crosswords();
+        term.grid[Line(0)].semantic_zone = SemanticZone::Prompt;
+        term.grid[Line(1)].semantic_zone = SemanticZone::Output;
+        term.grid[Line(2)].semantic_zone = SemanticZone::Output;
+        term.grid[Line(3)].semantic_zone = SemanticZone::Prompt;
+        term.mode.insert(Mode::VI);
+        term.vi_mode_cursor.pos = Pos::new(Line(3), Column(0));
+
+        let range = term
+            .select_semantic_output()
+            .expect("output region should be selected");
+
+        assert_eq!(range.start.row, Line(1));
+        assert_eq!(range.start.col, Column(0));
+        assert_eq!(range.end.row, Line(2));
+        assert_eq!(range.end.col, term.grid.last_column());
+        assert_eq!(
+            term.selection.as_ref().and_then(|s| s.to_range(&term)),
+            Some(range)
         );
     }
 
