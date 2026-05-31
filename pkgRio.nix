@@ -44,12 +44,15 @@ in
                           $out/share/icons/hicolor/scalable/apps/rio.svg
         install -D -m 644 misc/logo.svg \
                           $out/share/icons/hicolor/scalable/apps/yazelix-terminal.svg
+        install -D -m 644 misc/yazelix_terminal_config.toml \
+                          $out/share/yazelix-terminal/config.toml
 
         makeWrapper "${unwrapped}/bin/rio" "$out/bin/rio" \
           --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath rlinkLibs}"
         ln -s "$out/bin/rio" "$out/bin/yazelix-terminal"
         substitute misc/yazelix_terminal_desktop.sh "$out/bin/yazelix-terminal-desktop" \
-          --replace-fail "@yazelix_terminal_binary@" "$out/bin/yazelix-terminal"
+          --replace-fail "@yazelix_terminal_binary@" "$out/bin/yazelix-terminal" \
+          --replace-fail "@yazelix_terminal_config_home@" "$out/share/yazelix-terminal"
         chmod 755 "$out/bin/yazelix-terminal-desktop"
 
         install -dm 755 "$out/share/applications"

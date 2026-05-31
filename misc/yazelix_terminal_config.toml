@@ -1,0 +1,6 @@
+confirm-before-quit = false
+
+[renderer]
+# Work around upstream Rio #1603 on Wayland/COSMIC, where the default renderer
+# strategy can stop waking for input and resize events while the shell is idle.
+strategy = "game"

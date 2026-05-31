@@ -2,6 +2,7 @@
 set -eu
 
 binary="@yazelix_terminal_binary@"
+default_config_home="@yazelix_terminal_config_home@"
 
 is_executable() {
   [ -n "$1" ] && [ -x "$1" ]
@@ -103,6 +104,36 @@ find_graphics_wrapper() {
     nixGL \
     nixGLIntel
 }
+
+configure_rio_config() {
+  if [ -n "${YAZELIX_TERMINAL_CONFIG:-}" ]; then
+    if [ -d "$YAZELIX_TERMINAL_CONFIG" ] && [ -r "$YAZELIX_TERMINAL_CONFIG/config.toml" ]; then
+      export RIO_CONFIG_HOME="$YAZELIX_TERMINAL_CONFIG"
+      return 0
+    fi
+    printf 'YAZELIX_TERMINAL_CONFIG must point to a readable Rio config directory containing config.toml: %s\n' "$YAZELIX_TERMINAL_CONFIG" >&2
+    exit 127
+  fi
+
+  if [ -n "${RIO_CONFIG_HOME:-}" ]; then
+    return 0
+  fi
+
+  case "${YAZELIX_TERMINAL_RENDER_STRATEGY:-game}" in
+    game | Game | GAME)
+      export RIO_CONFIG_HOME="$default_config_home"
+      ;;
+    default | none | NONE | 0)
+      ;;
+    *)
+      printf 'Unsupported YAZELIX_TERMINAL_RENDER_STRATEGY: %s\n' "$YAZELIX_TERMINAL_RENDER_STRATEGY" >&2
+      printf 'Use game, default, none, or 0.\n' >&2
+      exit 64
+      ;;
+  esac
+}
+
+configure_rio_config
 
 if graphics_wrapper="$(find_graphics_wrapper)"; then
   exec "$graphics_wrapper" "$binary" --app-id yazelix-terminal "$@"
