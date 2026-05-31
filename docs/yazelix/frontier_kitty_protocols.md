@@ -15,6 +15,7 @@ Reviewed on 2026-05-31 against:
 - Kitty clipboard: https://sw.kovidgoyal.net/kitty/clipboard/
 - Kitty unscrolling: https://sw.kovidgoyal.net/kitty/unscroll/
 - Ghostty local reference: `/home/lucca/pjs/open_source/yazelix_related/ghostty`
+- Kitty keyboard audit: `docs/yazelix/kitty_keyboard_audit.md`
 
 The implementation rule is the same as the parity contract: use Kitty's public
 specs and black-box behavior for Kitty-specific protocols, and use Ghostty's MIT
@@ -27,6 +28,7 @@ Already implemented or partially validated in Yazelix-terminal:
 - Kitty graphics, including Unicode-placeholder graphics through the Yazelix
   stack
 - Kitty keyboard protocol mode stack and CSI-u emission paths
+- Kitty keyboard all-flags and stack fixture streams in the conformance harness
 - Sixel and iTerm2 inline image paths through the renderer
 - OSC 66 parser and cell-width behavior
 - OSC 99 notification parsing/display, support query replies, alive query
@@ -141,11 +143,13 @@ the mode stack and CSI-u emission machinery. Before declaring parity, Yazelix
 should run a spec-level audit for associated text, alternate keys, event types,
 numpad/function-key mappings, mode query replies, and terminal reset behavior.
 
-Scope:
+Result:
 
-- Compare implementation against the current official Kitty keyboard spec
-- Add fixtures for the gaps that matter to Helix, Yazi, Nushell, and Zellij
-- Keep winit limitations documented instead of hiding them
+- The audit lives in `docs/yazelix/kitty_keyboard_audit.md`
+- The conformance harness has all-flags and stack fixture streams
+- Follow-up implementation beads should cover stack edge semantics, full
+  modifier-bit reporting, base-layout alternate keys, and the remaining
+  functional/keypad private-use mappings
 
 ### Kitty Unscrolling
 

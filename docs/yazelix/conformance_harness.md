@@ -85,6 +85,8 @@ The first manifest covers:
 - Kitty OSC 66 text sizing
 - Kitty OSC 99 desktop notification
 - Kitty keyboard mode query
+- Kitty keyboard all-flags query
+- Kitty keyboard stack push/union/pop/query stream
 - Kitty graphics 1x1 RGBA transmit/place
 - minimal Sixel DCS path
 - synchronized output DECSET 2026

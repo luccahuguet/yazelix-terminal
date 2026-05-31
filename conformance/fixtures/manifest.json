@@ -66,6 +66,22 @@
       "hex": "1b5b3f75"
     },
     {
+      "id": "kitty_keyboard_all_flags_query",
+      "tier": "must",
+      "protocol": "Kitty keyboard",
+      "description": "Set all Kitty keyboard progressive enhancement flags, then query the active flags.",
+      "source": "Kitty keyboard protocol progressive enhancement uses CSI = flags ; mode u and CSI ? u.",
+      "hex": "1b5b3d33313b31751b5b3f75"
+    },
+    {
+      "id": "kitty_keyboard_stack_restore",
+      "tier": "must",
+      "protocol": "Kitty keyboard",
+      "description": "Push disambiguation mode, union report-all-keys, query, pop one stack entry, then query again.",
+      "source": "Kitty keyboard protocol stack management uses CSI > flags u and CSI < number u.",
+      "hex": "1b5b3e31751b5b3d383b32751b5b3f751b5b3c751b5b3f75"
+    },
+    {
       "id": "kitty_graphics_1x1_rgba",
       "tier": "must",
       "protocol": "Kitty graphics",
