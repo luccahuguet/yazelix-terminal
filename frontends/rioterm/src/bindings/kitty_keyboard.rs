@@ -170,45 +170,11 @@ impl SequenceBuilder {
     ///
     /// `None` is returned when the key is neither known nor numpad.
     fn try_build_numpad(&self, key: &KeyEvent) -> Option<SequenceBase> {
-        if !self.kitty_seq || key.location != KeyLocation::Numpad {
+        if !self.kitty_seq {
             return None;
         }
 
-        let base = match key.logical_key.as_ref() {
-            Key::Character("0") => "57399",
-            Key::Character("1") => "57400",
-            Key::Character("2") => "57401",
-            Key::Character("3") => "57402",
-            Key::Character("4") => "57403",
-            Key::Character("5") => "57404",
-            Key::Character("6") => "57405",
-            Key::Character("7") => "57406",
-            Key::Character("8") => "57407",
-            Key::Character("9") => "57408",
-            Key::Character(".") => "57409",
-            Key::Character("/") => "57410",
-            Key::Character("*") => "57411",
-            Key::Character("-") => "57412",
-            Key::Character("+") => "57413",
-            Key::Character("=") => "57415",
-            Key::Named(named) => match named {
-                NamedKey::Enter => "57414",
-                NamedKey::ArrowLeft => "57417",
-                NamedKey::ArrowRight => "57418",
-                NamedKey::ArrowUp => "57419",
-                NamedKey::ArrowDown => "57420",
-                NamedKey::PageUp => "57421",
-                NamedKey::PageDown => "57422",
-                NamedKey::Home => "57423",
-                NamedKey::End => "57424",
-                NamedKey::Insert => "57425",
-                NamedKey::Delete => "57426",
-                _ => return None,
-            },
-            _ => return None,
-        };
-
-        Some(SequenceBase::new(base.into(), SequenceTerminator::Kitty))
+        numpad_sequence_base(key.logical_key.as_ref(), key.location)
     }
 
     /// Try building from [`NamedKey`] using the kitty keyboard protocol encoding
@@ -219,52 +185,7 @@ impl SequenceBuilder {
             _ => return None,
         };
 
-        let (base, terminator) = match named {
-            // F3 in kitty protocol diverges from alacritty's terminfo.
-            NamedKey::F3 => ("13", SequenceTerminator::Normal('~')),
-            NamedKey::F13 => ("57376", SequenceTerminator::Kitty),
-            NamedKey::F14 => ("57377", SequenceTerminator::Kitty),
-            NamedKey::F15 => ("57378", SequenceTerminator::Kitty),
-            NamedKey::F16 => ("57379", SequenceTerminator::Kitty),
-            NamedKey::F17 => ("57380", SequenceTerminator::Kitty),
-            NamedKey::F18 => ("57381", SequenceTerminator::Kitty),
-            NamedKey::F19 => ("57382", SequenceTerminator::Kitty),
-            NamedKey::F20 => ("57383", SequenceTerminator::Kitty),
-            NamedKey::F21 => ("57384", SequenceTerminator::Kitty),
-            NamedKey::F22 => ("57385", SequenceTerminator::Kitty),
-            NamedKey::F23 => ("57386", SequenceTerminator::Kitty),
-            NamedKey::F24 => ("57387", SequenceTerminator::Kitty),
-            NamedKey::F25 => ("57388", SequenceTerminator::Kitty),
-            NamedKey::F26 => ("57389", SequenceTerminator::Kitty),
-            NamedKey::F27 => ("57390", SequenceTerminator::Kitty),
-            NamedKey::F28 => ("57391", SequenceTerminator::Kitty),
-            NamedKey::F29 => ("57392", SequenceTerminator::Kitty),
-            NamedKey::F30 => ("57393", SequenceTerminator::Kitty),
-            NamedKey::F31 => ("57394", SequenceTerminator::Kitty),
-            NamedKey::F32 => ("57395", SequenceTerminator::Kitty),
-            NamedKey::F33 => ("57396", SequenceTerminator::Kitty),
-            NamedKey::F34 => ("57397", SequenceTerminator::Kitty),
-            NamedKey::F35 => ("57398", SequenceTerminator::Kitty),
-            NamedKey::ScrollLock => ("57359", SequenceTerminator::Kitty),
-            NamedKey::PrintScreen => ("57361", SequenceTerminator::Kitty),
-            NamedKey::Pause => ("57362", SequenceTerminator::Kitty),
-            NamedKey::ContextMenu => ("57363", SequenceTerminator::Kitty),
-            NamedKey::MediaPlay => ("57428", SequenceTerminator::Kitty),
-            NamedKey::MediaPause => ("57429", SequenceTerminator::Kitty),
-            NamedKey::MediaPlayPause => ("57430", SequenceTerminator::Kitty),
-            NamedKey::MediaStop => ("57432", SequenceTerminator::Kitty),
-            NamedKey::MediaFastForward => ("57433", SequenceTerminator::Kitty),
-            NamedKey::MediaRewind => ("57434", SequenceTerminator::Kitty),
-            NamedKey::MediaTrackNext => ("57435", SequenceTerminator::Kitty),
-            NamedKey::MediaTrackPrevious => ("57436", SequenceTerminator::Kitty),
-            NamedKey::MediaRecord => ("57437", SequenceTerminator::Kitty),
-            NamedKey::AudioVolumeDown => ("57438", SequenceTerminator::Kitty),
-            NamedKey::AudioVolumeUp => ("57439", SequenceTerminator::Kitty),
-            NamedKey::AudioVolumeMute => ("57440", SequenceTerminator::Kitty),
-            _ => return None,
-        };
-
-        Some(SequenceBase::new(base.into(), terminator))
+        named_kitty_sequence_base(named)
     }
 
     /// Try building from [`NamedKey`].
@@ -339,38 +260,22 @@ impl SequenceBuilder {
             _ => return None,
         };
 
-        let base = match named {
-            NamedKey::Tab => "9",
-            NamedKey::Enter => "13",
-            NamedKey::Escape => "27",
-            NamedKey::Space => "32",
-            NamedKey::Backspace => "127",
-            _ => "",
+        let control_base = match named {
+            NamedKey::Tab => Some("9"),
+            NamedKey::Enter => Some("13"),
+            NamedKey::Escape => Some("27"),
+            NamedKey::Space => Some("32"),
+            NamedKey::Backspace => Some("127"),
+            _ => None,
         };
 
         // Fail when the key is not a named control character and the active mode prohibits us
         // from encoding modifier keys.
-        if !self.kitty_encode_all && base.is_empty() {
+        if !self.kitty_encode_all && control_base.is_none() {
             return None;
         }
 
-        let base = match (named, key.location) {
-            (NamedKey::Shift, KeyLocation::Left) => "57441",
-            (NamedKey::Control, KeyLocation::Left) => "57442",
-            (NamedKey::Alt, KeyLocation::Left) => "57443",
-            (NamedKey::Super, KeyLocation::Left) => "57444",
-            (NamedKey::Hyper, KeyLocation::Left) => "57445",
-            (NamedKey::Meta, KeyLocation::Left) => "57446",
-            (NamedKey::Shift, _) => "57447",
-            (NamedKey::Control, _) => "57448",
-            (NamedKey::Alt, _) => "57449",
-            (NamedKey::Super, _) => "57450",
-            (NamedKey::Hyper, _) => "57451",
-            (NamedKey::Meta, _) => "57452",
-            (NamedKey::CapsLock, _) => "57358",
-            (NamedKey::NumLock, _) => "57360",
-            _ => base,
-        };
+        let base = modifier_key_base(named, key.location).or(control_base)?;
 
         // NOTE: Kitty's protocol mandates that the modifier state is applied before
         // key press, however winit sends them after the key press, so for modifiers
@@ -385,12 +290,121 @@ impl SequenceBuilder {
             _ => (),
         }
 
-        if base.is_empty() {
-            None
-        } else {
-            Some(SequenceBase::new(base.into(), SequenceTerminator::Kitty))
-        }
+        Some(SequenceBase::new(base.into(), SequenceTerminator::Kitty))
     }
+}
+
+fn modifier_key_base(named: NamedKey, location: KeyLocation) -> Option<&'static str> {
+    match (named, location) {
+        (NamedKey::Shift, KeyLocation::Left) => Some("57441"),
+        (NamedKey::Control, KeyLocation::Left) => Some("57442"),
+        (NamedKey::Alt, KeyLocation::Left) => Some("57443"),
+        (NamedKey::Super, KeyLocation::Left) => Some("57444"),
+        (NamedKey::Hyper, KeyLocation::Left) => Some("57445"),
+        (NamedKey::Meta, KeyLocation::Left) => Some("57446"),
+        (NamedKey::Shift, _) => Some("57447"),
+        (NamedKey::Control, _) => Some("57448"),
+        (NamedKey::Alt, _) => Some("57449"),
+        (NamedKey::Super, _) => Some("57450"),
+        (NamedKey::Hyper, _) => Some("57451"),
+        (NamedKey::Meta, _) => Some("57452"),
+        (NamedKey::AltGraph, _) => Some("57453"),
+        (NamedKey::CapsLock, _) => Some("57358"),
+        (NamedKey::NumLock, _) => Some("57360"),
+        _ => None,
+    }
+}
+
+fn numpad_sequence_base(key: Key<&str>, location: KeyLocation) -> Option<SequenceBase> {
+    if location != KeyLocation::Numpad {
+        return None;
+    }
+
+    let base = match key {
+        Key::Character("0") => SequenceBase::kitty("57399"),
+        Key::Character("1") => SequenceBase::kitty("57400"),
+        Key::Character("2") => SequenceBase::kitty("57401"),
+        Key::Character("3") => SequenceBase::kitty("57402"),
+        Key::Character("4") => SequenceBase::kitty("57403"),
+        Key::Character("5") => SequenceBase::kitty("57404"),
+        Key::Character("6") => SequenceBase::kitty("57405"),
+        Key::Character("7") => SequenceBase::kitty("57406"),
+        Key::Character("8") => SequenceBase::kitty("57407"),
+        Key::Character("9") => SequenceBase::kitty("57408"),
+        Key::Character(".") => SequenceBase::kitty("57409"),
+        Key::Character("/") => SequenceBase::kitty("57410"),
+        Key::Character("*") => SequenceBase::kitty("57411"),
+        Key::Character("-") => SequenceBase::kitty("57412"),
+        Key::Character("+") => SequenceBase::kitty("57413"),
+        Key::Character("=") => SequenceBase::kitty("57415"),
+        Key::Character(",") => SequenceBase::kitty("57416"),
+        Key::Named(NamedKey::Enter) => SequenceBase::kitty("57414"),
+        Key::Named(NamedKey::ArrowLeft) => SequenceBase::kitty("57417"),
+        Key::Named(NamedKey::ArrowRight) => SequenceBase::kitty("57418"),
+        Key::Named(NamedKey::ArrowUp) => SequenceBase::kitty("57419"),
+        Key::Named(NamedKey::ArrowDown) => SequenceBase::kitty("57420"),
+        Key::Named(NamedKey::PageUp) => SequenceBase::kitty("57421"),
+        Key::Named(NamedKey::PageDown) => SequenceBase::kitty("57422"),
+        Key::Named(NamedKey::Home) => SequenceBase::kitty("57423"),
+        Key::Named(NamedKey::End) => SequenceBase::kitty("57424"),
+        Key::Named(NamedKey::Insert) => SequenceBase::kitty("57425"),
+        Key::Named(NamedKey::Delete) => SequenceBase::kitty("57426"),
+        Key::Named(NamedKey::Clear) => {
+            SequenceBase::new("57427".into(), SequenceTerminator::Normal('~'))
+        }
+        _ => return None,
+    };
+
+    Some(base)
+}
+
+fn named_kitty_sequence_base(named: NamedKey) -> Option<SequenceBase> {
+    let (base, terminator) = match named {
+        // F3 in kitty protocol diverges from alacritty's terminfo.
+        NamedKey::F3 => ("13", SequenceTerminator::Normal('~')),
+        NamedKey::F13 => ("57376", SequenceTerminator::Kitty),
+        NamedKey::F14 => ("57377", SequenceTerminator::Kitty),
+        NamedKey::F15 => ("57378", SequenceTerminator::Kitty),
+        NamedKey::F16 => ("57379", SequenceTerminator::Kitty),
+        NamedKey::F17 => ("57380", SequenceTerminator::Kitty),
+        NamedKey::F18 => ("57381", SequenceTerminator::Kitty),
+        NamedKey::F19 => ("57382", SequenceTerminator::Kitty),
+        NamedKey::F20 => ("57383", SequenceTerminator::Kitty),
+        NamedKey::F21 => ("57384", SequenceTerminator::Kitty),
+        NamedKey::F22 => ("57385", SequenceTerminator::Kitty),
+        NamedKey::F23 => ("57386", SequenceTerminator::Kitty),
+        NamedKey::F24 => ("57387", SequenceTerminator::Kitty),
+        NamedKey::F25 => ("57388", SequenceTerminator::Kitty),
+        NamedKey::F26 => ("57389", SequenceTerminator::Kitty),
+        NamedKey::F27 => ("57390", SequenceTerminator::Kitty),
+        NamedKey::F28 => ("57391", SequenceTerminator::Kitty),
+        NamedKey::F29 => ("57392", SequenceTerminator::Kitty),
+        NamedKey::F30 => ("57393", SequenceTerminator::Kitty),
+        NamedKey::F31 => ("57394", SequenceTerminator::Kitty),
+        NamedKey::F32 => ("57395", SequenceTerminator::Kitty),
+        NamedKey::F33 => ("57396", SequenceTerminator::Kitty),
+        NamedKey::F34 => ("57397", SequenceTerminator::Kitty),
+        NamedKey::F35 => ("57398", SequenceTerminator::Kitty),
+        NamedKey::ScrollLock => ("57359", SequenceTerminator::Kitty),
+        NamedKey::PrintScreen => ("57361", SequenceTerminator::Kitty),
+        NamedKey::Pause => ("57362", SequenceTerminator::Kitty),
+        NamedKey::ContextMenu => ("57363", SequenceTerminator::Kitty),
+        NamedKey::MediaPlay => ("57428", SequenceTerminator::Kitty),
+        NamedKey::MediaPause => ("57429", SequenceTerminator::Kitty),
+        NamedKey::MediaPlayPause => ("57430", SequenceTerminator::Kitty),
+        NamedKey::MediaStop => ("57432", SequenceTerminator::Kitty),
+        NamedKey::MediaFastForward => ("57433", SequenceTerminator::Kitty),
+        NamedKey::MediaRewind => ("57434", SequenceTerminator::Kitty),
+        NamedKey::MediaTrackNext => ("57435", SequenceTerminator::Kitty),
+        NamedKey::MediaTrackPrevious => ("57436", SequenceTerminator::Kitty),
+        NamedKey::MediaRecord => ("57437", SequenceTerminator::Kitty),
+        NamedKey::AudioVolumeDown => ("57438", SequenceTerminator::Kitty),
+        NamedKey::AudioVolumeUp => ("57439", SequenceTerminator::Kitty),
+        NamedKey::AudioVolumeMute => ("57440", SequenceTerminator::Kitty),
+        _ => return None,
+    };
+
+    Some(SequenceBase::new(base.into(), terminator))
 }
 
 pub struct SequenceBase {
@@ -406,6 +420,10 @@ impl SequenceBase {
             payload,
             terminator,
         }
+    }
+
+    fn kitty(payload: &'static str) -> Self {
+        Self::new(payload.into(), SequenceTerminator::Kitty)
     }
 }
 
@@ -463,4 +481,56 @@ fn is_control_character(text: &str) -> bool {
     // does not match the reported text (`^H`), despite not technically being part of C0 or C1.
     let codepoint = text.bytes().next().unwrap();
     text.len() == 1 && (codepoint < 0x20 || (0x7f..=0x9f).contains(&codepoint))
+}
+
+#[cfg(test)]
+mod tests {
+    // Test lane: default
+
+    use super::*;
+
+    fn assert_sequence(
+        sequence: SequenceBase,
+        payload: &str,
+        terminator: SequenceTerminator,
+    ) {
+        assert_eq!(sequence.payload, payload);
+        assert_eq!(sequence.terminator, terminator);
+    }
+
+    // Defends: Kitty KP_SEPARATOR uses its own private-use code instead of falling through as text.
+    #[test]
+    fn kitty_numpad_separator_maps_to_private_code() {
+        let sequence =
+            numpad_sequence_base(Key::Character(","), KeyLocation::Numpad).unwrap();
+
+        assert_sequence(sequence, "57416", SequenceTerminator::Kitty);
+    }
+
+    // Defends: Kitty KP_BEGIN preserves the spec's 57427~ keypad begin encoding.
+    #[test]
+    fn kitty_numpad_clear_maps_to_begin() {
+        let sequence =
+            numpad_sequence_base(Key::Named(NamedKey::Clear), KeyLocation::Numpad)
+                .unwrap();
+
+        assert_sequence(sequence, "57427", SequenceTerminator::Normal('~'));
+    }
+
+    // Defends: non-keypad comma must not be reclassified as KP_SEPARATOR.
+    #[test]
+    fn kitty_numpad_mapping_requires_numpad_location() {
+        assert!(
+            numpad_sequence_base(Key::Character(","), KeyLocation::Standard).is_none()
+        );
+    }
+
+    // Defends: Kitty ISO level 3 shift is represented when AltGraph is encoded as a key.
+    #[test]
+    fn kitty_alt_graph_maps_to_iso_level3_shift() {
+        assert_eq!(
+            modifier_key_base(NamedKey::AltGraph, KeyLocation::Standard),
+            Some("57453")
+        );
+    }
 }

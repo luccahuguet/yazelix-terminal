@@ -104,11 +104,14 @@ The current mapping covers the important editor and shell keys, but it does not
 cover every Kitty private-use key Rio can observe. Known holes from the local
 source audit:
 
-- `KP_SEPARATOR` (`57416`) for numpad comma/separator
-- `KP_BEGIN` (`57427`) for numpad begin/clear style events
-- `MEDIA_REVERSE` (`57431`) if Rio can distinguish it from rewind/play
-- ISO level 3 and level 5 shift (`57453`, `57454`) if platform events expose
-  them through `NamedKey` or `PhysicalKey`
+- `MEDIA_REVERSE` (`57431`) is not mapped because `rio-window` does not expose a
+  distinct reverse-media key today
+- ISO level 5 shift (`57454`) is not mapped because the local XKB adapter leaves
+  ISO level 5 keysyms commented out instead of exposing a `NamedKey`
+
+The first implementation follow-up after this audit filled the table entries
+Rio does expose directly: `KP_SEPARATOR` (`57416`), `KP_BEGIN` (`57427~`), and
+ISO level 3 shift through `NamedKey::AltGraph` (`57453`).
 
 ## Compatibility Impact
 
