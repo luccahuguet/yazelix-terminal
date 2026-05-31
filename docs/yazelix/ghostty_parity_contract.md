@@ -138,6 +138,9 @@ and explicit:
 - clear app id/window class behavior so desktop entries and launchers are not
   duplicated or confusing
 
+The current experimental command surface is documented in
+`docs/yazelix/yazelix_mode.md`.
+
 ## Should-Have Parity
 
 These are expected before calling the fork release-quality, but they should not

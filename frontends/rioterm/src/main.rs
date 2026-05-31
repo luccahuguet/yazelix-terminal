@@ -42,7 +42,10 @@ use windows_sys::Win32::System::Console::{
 
 const LOG_LEVEL_ENV: &str = "RIO_LOG_LEVEL";
 
-pub fn setup_environment_variables(config: &rio_backend::config::Config) {
+pub fn setup_environment_variables(
+    config: &rio_backend::config::Config,
+    yazelix_mode: bool,
+) {
     #[cfg(unix)]
     {
         let terminfo = match (
@@ -64,7 +67,12 @@ pub fn setup_environment_variables(config: &rio_backend::config::Config) {
     }
 
     // https://github.com/raphamorim/rio/issues/200
-    std::env::set_var("TERM_PROGRAM", "rio");
+    let term_program = if yazelix_mode {
+        "yazelix-terminal"
+    } else {
+        "rio"
+    };
+    std::env::set_var("TERM_PROGRAM", term_program);
     std::env::set_var("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"));
 
     std::env::set_var("COLORTERM", "truecolor");
@@ -84,6 +92,30 @@ pub fn setup_environment_variables(config: &rio_backend::config::Config) {
             std::env::set_var(env_vec[0], env_vec[1]);
         }
     }
+}
+
+fn apply_yazelix_mode(
+    config: &mut rio_backend::config::Config,
+    terminal_options: &cli::TerminalOptions,
+    app_id: &mut Option<String>,
+) -> Result<(), String> {
+    if !terminal_options.yazelix {
+        return Ok(());
+    }
+
+    if terminal_options.command().is_none() {
+        return Err(
+            "--yazelix requires --command/-e with the Yazelix runtime command".into(),
+        );
+    }
+
+    config.use_fork = false;
+    config.navigation.use_split = false;
+    config.navigation.open_config_with_split = false;
+    config.navigation.hide_if_single = true;
+    app_id.get_or_insert_with(|| "yazelix-terminal".to_string());
+
+    Ok(())
 }
 
 fn setup_logs_by_filter_level(
@@ -173,7 +205,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     config.overwrite_based_on_platform();
 
     {
-        let log_to_file = args.window_options.terminal_options.enable_log_file;
+        let terminal_options = &args.window_options.terminal_options;
+        let log_to_file = terminal_options.enable_log_file;
         if let Err(e) = setup_logs_by_filter_level(
             &config.developer.log_level,
             log_to_file || config.developer.enable_log_file,
@@ -181,12 +214,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("unable to configure the logger: {e:?}");
         }
 
-        if let Some(command) = args.window_options.terminal_options.command() {
+        if let Some(command) = terminal_options.command() {
             config.shell = command;
             config.use_fork = false;
         }
 
-        if let Some(working_dir_cli) = args.window_options.terminal_options.working_dir {
+        if let Some(working_dir_cli) = terminal_options.working_dir.as_deref() {
             // Use dunce::canonicalize on Windows to avoid UNC paths (\\?\)
             // which break many tools like Neovim and Bun
             #[cfg(target_os = "windows")]
@@ -219,7 +252,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
         }
 
-        config.title.placeholder = args.window_options.terminal_options.title_placeholder;
+        config.title.placeholder = terminal_options.title_placeholder.clone();
     }
 
     #[cfg(target_os = "linux")]
@@ -231,12 +264,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    setup_environment_variables(&config);
+    let terminal_options = &args.window_options.terminal_options;
+    let mut app_id = terminal_options.app_id.clone();
+    apply_yazelix_mode(&mut config, terminal_options, &mut app_id)
+        .map_err(std::io::Error::other)?;
+
+    setup_environment_variables(&config, terminal_options.yazelix);
 
     let window_event_loop =
         rio_window::event_loop::EventLoop::<EventPayload>::with_user_event().build()?;
-
-    let app_id = args.window_options.terminal_options.app_id;
 
     let mut application = crate::application::Application::new(
         config,
@@ -252,4 +288,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+// Test lane: default
+mod tests {
+    use super::*;
+
+    #[test]
+    // Defends: Yazelix mode is explicit and never silently falls back to a host shell.
+    fn yazelix_mode_requires_command() {
+        let mut config = rio_backend::config::Config::default();
+        let mut app_id = None;
+        let options = cli::TerminalOptions {
+            yazelix: true,
+            ..Default::default()
+        };
+
+        assert!(apply_yazelix_mode(&mut config, &options, &mut app_id).is_err());
+    }
+
+    #[test]
+    // Defends: Yazelix mode disables Rio-owned workspace splits while preserving the single child command surface.
+    fn yazelix_mode_disables_native_workspace_ownership() {
+        let mut config = rio_backend::config::Config::default();
+        let mut app_id = None;
+        let options = cli::TerminalOptions {
+            command: vec!["yzx".to_string(), "launch".to_string()],
+            yazelix: true,
+            ..Default::default()
+        };
+
+        apply_yazelix_mode(&mut config, &options, &mut app_id).unwrap();
+
+        assert!(!config.navigation.use_split);
+        assert!(!config.navigation.open_config_with_split);
+        assert!(config.navigation.hide_if_single);
+        assert!(!config.use_fork);
+        assert_eq!(app_id.as_deref(), Some("yazelix-terminal"));
+    }
 }
