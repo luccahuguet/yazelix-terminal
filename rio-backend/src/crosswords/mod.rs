@@ -6365,6 +6365,15 @@ mod tests {
         ))
     }
 
+    // macOS temp dirs can live under /var, which is a system symlink.
+    // Canonicalize fixture roots so symlink-guard tests fail only on the
+    // deliberate symlink created inside the fixture.
+    fn canonical_test_dir(label: &str) -> PathBuf {
+        let path = unique_test_dir(label);
+        fs::create_dir_all(&path).unwrap();
+        fs::canonicalize(path).unwrap()
+    }
+
     fn point_file_transfer_session_at(
         term: &mut Crosswords<EventCaptureListener>,
         id: &str,
@@ -7961,8 +7970,7 @@ mod tests {
     // Defends: approved OSC 5113 receive sessions list and stream only an explicitly requested regular file.
     fn osc5113_receive_approved_regular_file_streams_data() {
         let (mut term, events) = make_capturing_crosswords(7);
-        let temp_dir = unique_test_dir("file-transfer-receive-file");
-        fs::create_dir_all(&temp_dir).unwrap();
+        let temp_dir = canonical_test_dir("file-transfer-receive-file");
         let path = temp_dir.join("document.txt");
         fs::write(&path, b"hello").unwrap();
 
@@ -7999,8 +8007,7 @@ mod tests {
     // Defends: approved OSC 5113 receive can zlib-compress local file data before streaming it to the client.
     fn osc5113_receive_approved_regular_file_streams_zlib_data() {
         let (mut term, events) = make_capturing_crosswords(7);
-        let temp_dir = unique_test_dir("file-transfer-receive-zlib");
-        fs::create_dir_all(&temp_dir).unwrap();
+        let temp_dir = canonical_test_dir("file-transfer-receive-zlib");
         let path = temp_dir.join("document.txt");
         fs::write(&path, b"hello compressed receive").unwrap();
 
@@ -8051,7 +8058,7 @@ mod tests {
     // Defends: directory receive traversal is bounded instead of recursively enumerating arbitrary depth.
     fn osc5113_receive_rejects_deep_directory_traversal() {
         let (mut term, events) = make_capturing_crosswords(7);
-        let temp_dir = unique_test_dir("file-transfer-receive-depth");
+        let temp_dir = canonical_test_dir("file-transfer-receive-depth");
         let mut current = temp_dir.clone();
         for index in 0..18 {
             current = current.join(format!("d{index}"));
@@ -8082,7 +8089,7 @@ mod tests {
     // Defends: OSC 5113 receive path validation rejects symlink parents instead of following them to local files.
     fn osc5113_receive_rejects_symlink_parent_paths() {
         let (mut term, events) = make_capturing_crosswords(7);
-        let temp_dir = unique_test_dir("file-transfer-receive-symlink");
+        let temp_dir = canonical_test_dir("file-transfer-receive-symlink");
         let real_dir = temp_dir.join("real");
         let link_dir = temp_dir.join("link");
         fs::create_dir_all(&real_dir).unwrap();
