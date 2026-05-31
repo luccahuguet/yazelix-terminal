@@ -1,3 +1,10 @@
+## Yazelix Terminal Fork
+
+This branch is the Rio-derived `yazelix-terminal` experiment for Ghostty-grade
+Yazelix terminal behavior. The fork status, feature ledger, and verification
+evidence live in
+[`docs/yazelix/fork_feature_verification.md`](docs/yazelix/fork_feature_verification.md).
+
 <!-- LOGO -->
 <h1>
 <p align="center">
