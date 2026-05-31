@@ -4,9 +4,11 @@
 use rio_backend::crosswords::Mode;
 use rio_window::event::{ElementState, KeyEvent};
 use rio_window::keyboard::Key;
+use rio_window::keyboard::KeyCode;
 use rio_window::keyboard::KeyLocation;
 use rio_window::keyboard::ModifiersState;
 use rio_window::keyboard::NamedKey;
+use rio_window::keyboard::PhysicalKey;
 use rio_window::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use std::borrow::Cow;
 
@@ -146,12 +148,17 @@ impl SequenceBuilder {
                 }
             }
 
-            // NOTE: Base layouts are ignored, since winit doesn't expose this information
-            // yet.
-            let payload = if self.mode.contains(Mode::REPORT_ALTERNATE_KEYS)
-                && alternate_key_code != unicode_key_code
-            {
-                format!("{unicode_key_code}:{alternate_key_code}")
+            let payload = if self.mode.contains(Mode::REPORT_ALTERNATE_KEYS) {
+                let shifted_key_code = (shift && alternate_key_code != unicode_key_code)
+                    .then_some(alternate_key_code);
+                let base_layout_key_code = pc101_base_key_code(&key.physical_key)
+                    .filter(|base| *base != unicode_key_code);
+
+                alternate_key_payload(
+                    unicode_key_code,
+                    shifted_key_code,
+                    base_layout_key_code,
+                )
             } else {
                 unicode_key_code.to_string()
             };
@@ -285,6 +292,77 @@ impl SequenceBuilder {
 
         Some(SequenceBase::new(base.into(), SequenceTerminator::Kitty))
     }
+}
+
+fn alternate_key_payload(
+    unicode_key_code: u32,
+    shifted_key_code: Option<u32>,
+    base_layout_key_code: Option<u32>,
+) -> String {
+    match (shifted_key_code, base_layout_key_code) {
+        (Some(shifted), Some(base)) => {
+            format!("{unicode_key_code}:{shifted}:{base}")
+        }
+        (Some(shifted), None) => format!("{unicode_key_code}:{shifted}"),
+        (None, Some(base)) => format!("{unicode_key_code}::{base}"),
+        (None, None) => unicode_key_code.to_string(),
+    }
+}
+
+fn pc101_base_key_code(physical_key: &PhysicalKey) -> Option<u32> {
+    let ch = match physical_key {
+        PhysicalKey::Code(KeyCode::KeyA) => 'a',
+        PhysicalKey::Code(KeyCode::KeyB) => 'b',
+        PhysicalKey::Code(KeyCode::KeyC) => 'c',
+        PhysicalKey::Code(KeyCode::KeyD) => 'd',
+        PhysicalKey::Code(KeyCode::KeyE) => 'e',
+        PhysicalKey::Code(KeyCode::KeyF) => 'f',
+        PhysicalKey::Code(KeyCode::KeyG) => 'g',
+        PhysicalKey::Code(KeyCode::KeyH) => 'h',
+        PhysicalKey::Code(KeyCode::KeyI) => 'i',
+        PhysicalKey::Code(KeyCode::KeyJ) => 'j',
+        PhysicalKey::Code(KeyCode::KeyK) => 'k',
+        PhysicalKey::Code(KeyCode::KeyL) => 'l',
+        PhysicalKey::Code(KeyCode::KeyM) => 'm',
+        PhysicalKey::Code(KeyCode::KeyN) => 'n',
+        PhysicalKey::Code(KeyCode::KeyO) => 'o',
+        PhysicalKey::Code(KeyCode::KeyP) => 'p',
+        PhysicalKey::Code(KeyCode::KeyQ) => 'q',
+        PhysicalKey::Code(KeyCode::KeyR) => 'r',
+        PhysicalKey::Code(KeyCode::KeyS) => 's',
+        PhysicalKey::Code(KeyCode::KeyT) => 't',
+        PhysicalKey::Code(KeyCode::KeyU) => 'u',
+        PhysicalKey::Code(KeyCode::KeyV) => 'v',
+        PhysicalKey::Code(KeyCode::KeyW) => 'w',
+        PhysicalKey::Code(KeyCode::KeyX) => 'x',
+        PhysicalKey::Code(KeyCode::KeyY) => 'y',
+        PhysicalKey::Code(KeyCode::KeyZ) => 'z',
+        PhysicalKey::Code(KeyCode::Digit0) => '0',
+        PhysicalKey::Code(KeyCode::Digit1) => '1',
+        PhysicalKey::Code(KeyCode::Digit2) => '2',
+        PhysicalKey::Code(KeyCode::Digit3) => '3',
+        PhysicalKey::Code(KeyCode::Digit4) => '4',
+        PhysicalKey::Code(KeyCode::Digit5) => '5',
+        PhysicalKey::Code(KeyCode::Digit6) => '6',
+        PhysicalKey::Code(KeyCode::Digit7) => '7',
+        PhysicalKey::Code(KeyCode::Digit8) => '8',
+        PhysicalKey::Code(KeyCode::Digit9) => '9',
+        PhysicalKey::Code(KeyCode::Backquote) => '`',
+        PhysicalKey::Code(KeyCode::Minus) => '-',
+        PhysicalKey::Code(KeyCode::Equal) => '=',
+        PhysicalKey::Code(KeyCode::BracketLeft) => '[',
+        PhysicalKey::Code(KeyCode::BracketRight) => ']',
+        PhysicalKey::Code(KeyCode::Backslash) => '\\',
+        PhysicalKey::Code(KeyCode::Semicolon) => ';',
+        PhysicalKey::Code(KeyCode::Quote) => '\'',
+        PhysicalKey::Code(KeyCode::Comma) => ',',
+        PhysicalKey::Code(KeyCode::Period) => '.',
+        PhysicalKey::Code(KeyCode::Slash) => '/',
+        PhysicalKey::Code(KeyCode::IntlBackslash) => '\\',
+        _ => return None,
+    };
+
+    Some(u32::from(ch))
 }
 
 fn apply_modifier_key_state(
@@ -576,5 +654,35 @@ mod tests {
 
         assert!(!modifiers.contains(SequenceModifiers::CAPS_LOCK));
         assert!(!modifiers.contains(SequenceModifiers::NUM_LOCK));
+    }
+
+    // Defends: Kitty alternate-key payload can report a base-layout key without a shifted key.
+    #[test]
+    fn kitty_alternate_payload_reports_base_layout_only() {
+        assert_eq!(alternate_key_payload(1_089, None, Some(99)), "1089::99");
+    }
+
+    // Defends: Kitty alternate-key payload preserves shifted and base-layout subfields together.
+    #[test]
+    fn kitty_alternate_payload_reports_shifted_and_base_layout() {
+        assert_eq!(alternate_key_payload(61, Some(43), Some(61)), "61:43:61");
+    }
+
+    // Defends: physical PC-101 letter keys provide base-layout shortcut codepoints.
+    #[test]
+    fn kitty_pc101_base_key_maps_letters() {
+        assert_eq!(
+            pc101_base_key_code(&PhysicalKey::Code(KeyCode::KeyC)),
+            Some(u32::from('c'))
+        );
+    }
+
+    // Defends: physical PC-101 punctuation keys provide base-layout shortcut codepoints.
+    #[test]
+    fn kitty_pc101_base_key_maps_punctuation() {
+        assert_eq!(
+            pc101_base_key_code(&PhysicalKey::Code(KeyCode::Slash)),
+            Some(u32::from('/'))
+        );
     }
 }

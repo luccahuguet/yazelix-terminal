@@ -87,14 +87,14 @@ their private-use key codes; only the lock modifier bits remain platform-limited
 
 ### Base-Layout Alternate Keys
 
-The encoder reports the shifted alternate key when it differs from the unshifted
-key. It does not report Kitty's base-layout alternate key. This matters for
-shortcuts on non-Latin layouts, where applications want `ctrl+c` to match the
-physical `C` key even when the active layout emits another character.
+The encoder reports shifted alternate keys and base-layout alternate keys for
+PC-101 letters, digits, and punctuation exposed through `KeyEvent.physical_key`.
+This matters for shortcuts on non-Latin layouts, where applications want
+`ctrl+c` to match the physical `C` key even when the active layout emits another
+character.
 
-`KeyEvent` already carries a `physical_key`, so this may be implementable by
-mapping the relevant `PhysicalKey::Code(KeyCode::*)` values to their PC-101 base
-characters instead of treating it as an impossible winit limitation.
+Remaining limits: niche keys outside the PC-101 letter/digit/punctuation set are
+not assigned a guessed base-layout value.
 
 ### Functional And Keypad Coverage
 
