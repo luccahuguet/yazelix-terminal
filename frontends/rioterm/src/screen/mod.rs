@@ -187,6 +187,7 @@ pub struct Screen<'screen> {
     last_ime_cursor_pos: Option<(f32, f32)>,
     hints_config: Vec<std::rc::Rc<rio_backend::config::hints::Hint>>,
     pub resize_state: Option<crate::layout::ResizeState>,
+    last_render_presented: bool,
     /// Per-panel `GridRenderer`, keyed by `route_id`. Lazily created
     /// on first render of each panel so construction (which compiles
     /// the Metal/WGSL shaders and builds pipeline states) runs once
@@ -439,6 +440,7 @@ impl Screen<'_> {
             bindings,
             last_ime_cursor_pos: None,
             resize_state: None,
+            last_render_presented: false,
             grids: rustc_hash::FxHashMap::default(),
             grid_rasterizer: crate::grid_emit::GridGlyphRasterizer::new(),
         })
@@ -3460,6 +3462,12 @@ impl Screen<'_> {
             &self.context_manager.current().dimension,
         );
         self.sugarloaf.render();
+        self.last_render_presented = true;
+    }
+
+    #[inline]
+    pub(crate) fn last_render_presented(&self) -> bool {
+        self.last_render_presented
     }
 
     pub fn execute_palette_action(
@@ -3597,6 +3605,7 @@ impl Screen<'_> {
         if grid_cols > 0 && grid_rows > 0 {
             self.ensure_grid(current_route, grid_cols, grid_rows);
         }
+        self.last_render_presented = false;
 
         let is_search_active = self.search_active();
         if is_search_active {
@@ -4457,6 +4466,7 @@ impl Screen<'_> {
                 } else {
                     self.sugarloaf.render_with_grids(&mut frame_grids);
                 }
+                self.last_render_presented = true;
             } else {
                 // Nothing to draw this frame, but `Renderer::run`
                 // (plus overlays, borders, scrollbars, …) already

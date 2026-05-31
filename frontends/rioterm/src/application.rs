@@ -1987,6 +1987,7 @@ impl ApplicationHandler<EventPayload> for Application<'_> {
 
             WindowEvent::RedrawRequested => {
                 route.begin_render();
+                let render_start = route.window.render_timestamp;
 
                 match route.path {
                     RoutePath::Welcome => {
@@ -2049,9 +2050,39 @@ impl ApplicationHandler<EventPayload> for Application<'_> {
                     }
                 }
 
-                // let duration = start.elapsed();
-                // println!("Time elapsed in render() is: {:?}", duration);
-                // }
+                let render_end = std::time::Instant::now();
+                let presented = match &route.path {
+                    RoutePath::Welcome => true,
+                    RoutePath::Terminal | RoutePath::ConfirmQuit => {
+                        route.window.screen.last_render_presented()
+                    }
+                };
+                let dirty_after = route
+                    .window
+                    .screen
+                    .ctx()
+                    .current()
+                    .renderable_content
+                    .pending_update
+                    .is_dirty();
+                let route_name = match &route.path {
+                    RoutePath::Welcome => "welcome",
+                    RoutePath::Terminal => "terminal",
+                    RoutePath::ConfirmQuit => "confirm_quit",
+                };
+                let window_id = format!("{:?}", route.window.winit_window.id());
+                crate::frame_metrics::record_redraw(
+                    crate::frame_metrics::RedrawMetrics {
+                        window_id: &window_id,
+                        route: route_name,
+                        presented,
+                        dirty_after,
+                        game_mode: self.config.renderer.strategy.is_game(),
+                        vblank_interval: route.window.vblank_interval,
+                        render_start,
+                        render_end,
+                    },
+                );
 
                 // Game mode = unlocked framerate, so keep the event loop
                 // spinning. Every other case is vsync-paced: a

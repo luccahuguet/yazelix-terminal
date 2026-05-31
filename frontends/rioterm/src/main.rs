@@ -9,6 +9,7 @@ mod bindings;
 mod cli;
 mod constants;
 mod context;
+mod frame_metrics;
 mod graphics_namespace;
 mod grid_emit;
 mod hints;
@@ -330,6 +331,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(std::io::Error::other)?;
 
     setup_environment_variables(&config, terminal_options.yazelix);
+    frame_metrics::init_from_env()?;
 
     let window_event_loop =
         rio_window::event_loop::EventLoop::<EventPayload>::with_user_event().build()?;

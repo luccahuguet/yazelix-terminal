@@ -89,13 +89,74 @@ Ghostty OpenGL shader probe:
   `artifacts/benchmarks/screenshots/ghostty_shader_probe.png`
 - result: Ghostty loaded the same shader source and rendered normally
 
-## Gaps
+## Frame-Time Harness
+
+Status: implemented for `yzt-7p3.39`.
+
+Rio now has an opt-in frame event log for benchmark runs. Set
+`YAZELIX_TERMINAL_FRAME_LOG=/path/to/frame_log.jsonl` and each
+`RedrawRequested` pass writes a JSON event with:
+
+- route and window id
+- whether the pass presented a frame or only drained queued render state
+- first-redraw and per-redraw elapsed timestamps
+- render duration
+- frame-to-frame delta
+- target vblank interval
+- whether the renderer is in game mode
+
+Normal terminal sessions do not create this log. If the env var is present and
+the log cannot be opened or written, Rio fails fast because benchmark evidence
+must not silently degrade.
+
+The stdlib harness wraps the frame log with process sampling and artifact
+generation:
+
+```bash
+python3 tools/yazelix_benchmark.py frame-run \
+  --terminal target/release/rio \
+  --config-template wgpu \
+  --workload scroll
+```
+
+Artifacts are written under `artifacts/benchmarks/frame_time/<timestamp>/`:
+
+- `frame_log.jsonl`: raw Rio frame events
+- `proc_samples.csv`: `/proc/<pid>` CPU tick and RSS samples for the Rio process
+- `summary.json`: first-redraw latency, first-presented-frame latency,
+  redraw/presented frame delta histograms, render duration histogram, target
+  vblank histogram, and process CPU/RSS summary
+- `summary.csv`: flattened summary for spreadsheet comparison
+- `rio_config_home/config.toml`: isolated Rio config used by the run, unless
+  `--config-template host` is selected
+- `stdout.log` and `stderr.log`: terminal process output
+
+Built-in workloads:
+
+```bash
+python3 tools/yazelix_benchmark.py frame-run --workload scroll
+python3 tools/yazelix_benchmark.py frame-run --workload idle
+python3 tools/yazelix_benchmark.py frame-run --workload kitty-graphics
+python3 tools/yazelix_benchmark.py frame-run --workload sixel
+python3 tools/yazelix_benchmark.py frame-run --config-template wgpu-shader --workload idle --hold-seconds 10
+```
+
+The `wgpu-shader` template enables the Ghostty cursor shader probe and Rio's
+game render strategy, which makes long-running shader animation stability
+measurable from the same frame log.
+
+Existing frame logs can be summarized without launching a terminal:
+
+```bash
+python3 tools/yazelix_benchmark.py frame-summary \
+  artifacts/benchmarks/frame_time/<run>/frame_log.jsonl \
+  --samples artifacts/benchmarks/frame_time/<run>/proc_samples.csv
+```
+
+## Remaining Gaps
 
 The next useful benchmark work should add:
 
-- first-frame latency measurement
-- frame-time histograms during scrolling and shader animation
-- CPU/GPU utilization and memory measurements
-- long-running shader animation stability
-- graphics workloads for Kitty graphics and Sixel images
+- comparable Ghostty runs that use the same workload definitions where possible
+- GPU utilization sampling through optional host tools when available
 - release-package benchmarks instead of only local `target/release/rio`
