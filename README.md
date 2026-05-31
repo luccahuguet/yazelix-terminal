@@ -4,6 +4,8 @@ This branch is the Rio-derived `yazelix-terminal` experiment for Ghostty-grade
 Yazelix terminal behavior. The fork status, feature ledger, and verification
 evidence live in
 [`docs/yazelix/fork_feature_verification.md`](docs/yazelix/fork_feature_verification.md).
+Build-speed guidance lives in
+[`docs/yazelix/build_speed_workflow.md`](docs/yazelix/build_speed_workflow.md).
 
 <!-- LOGO -->
 <h1>
