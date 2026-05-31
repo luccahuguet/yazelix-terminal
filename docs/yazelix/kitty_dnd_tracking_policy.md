@@ -1,6 +1,6 @@
 # Kitty Drag And Drop Tracking Policy
 
-Status: tracking policy, no runtime support advertised.
+Status: explicit runtime deferral, no support advertised.
 
 Source spec: https://sw.kovidgoyal.net/kitty/dnd-protocol/
 
@@ -8,6 +8,9 @@ Kitty OSC 72 drag and drop is a frontier terminal protocol. It is attractive
 for Yazelix because Yazi already appears in the upstream support list, and real
 terminal drag/drop would be a major usability upgrade. It should not be treated
 as parser-only work.
+
+Reviewed on 2026-05-31. The official Kitty spec still marks the protocol as
+under development and points to upstream issue `#9984`.
 
 ## Current Decision
 
@@ -23,6 +26,8 @@ Reasons:
 - starting drags from terminal programs requires terminal-to-OS source data,
   images, status events, cancel handling, and resource limits
 - same-window drags must be denied with `EPERM` to avoid self-exfiltration
+- the current `rio-window` drop events are path-level convenience events, not an
+  OSC 72 data channel
 
 ## Supported Behavior For Now
 
@@ -37,6 +42,25 @@ Until the protocol stabilizes and Yazelix-terminal has a product/security design
 This is intentionally different from file transfer, where a deny-by-default
 parser skeleton is useful. For OSC 72, a support response would cause clients to
 expect live OS drag/drop behavior that does not exist yet.
+
+## Local Windowing Boundary
+
+Current useful but insufficient primitives:
+
+- `rio-window/src/event.rs` exposes `HoveredFile`, `DroppedFile`, and
+  `HoveredFileCancelled`
+- Windows `rio-window/src/platform_impl/windows/drop_handler.rs` accepts
+  `CF_HDROP` file paths and emits path events
+- macOS `rio-window/src/platform_impl/macos/window_delegate.rs` reads
+  `NSFilenamesPboardType` and emits path events
+- X11 `rio-window/src/platform_impl/linux/x11/event_processor.rs` has XDND file
+  path handling
+
+These are not enough for OSC 72 because the protocol requires per-move cell and
+pixel coordinates, MIME negotiation, chunked payload data, URI-list item
+requests, directory/symlink resource handles, drag-source offers, final
+operation reporting, and same-window source/drop denial. Wayland coverage is
+also absent in the local audit.
 
 ## Implementation Prerequisites
 

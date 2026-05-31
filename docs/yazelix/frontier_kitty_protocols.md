@@ -318,10 +318,12 @@ the protocol as still under development. It also requires OS drag/drop event
 integration, MIME negotiation, chunking, remote-machine behavior, and security
 rules for same-window drags.
 
-Recommended first step:
+Decision:
 
-- Defer full implementation until the spec settles; optionally implement only
-  support-query behavior once apps start depending on it
+- Defer full implementation until the spec settles and the window layer exposes
+  the OS event/data surfaces OSC 72 needs
+- Do not implement support-query behavior yet because `t=q` would advertise a
+  live drag/drop implementation the frontend cannot route safely
 
 Policy:
 
@@ -330,8 +332,9 @@ Policy:
 Result:
 
 - Runtime support remains intentionally unadvertised
-- `t=q` support-query replies should wait until the protocol stabilizes and the
-  frontend can actually route OS drag/drop events
+- `t=q` support-query replies wait until the protocol stabilizes and the
+  frontend can route MIME lists, move/drop coordinates, data requests, drag
+  source offers, and same-window denial
 
 ### Color Stack Push/Pop
 
