@@ -102,11 +102,14 @@ in
         wrapProgram "$out/bin/rio" \
           --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath rlinkLibs}"
         ln -s "$out/bin/rio" "$out/bin/yazelix-terminal"
+        substitute misc/yazelix_terminal_desktop.sh "$out/bin/yazelix-terminal-desktop" \
+          --replace-fail "@yazelix_terminal_binary@" "$out/bin/yazelix-terminal"
+        chmod 755 "$out/bin/yazelix-terminal-desktop"
 
         install -dm 755 "$out/share/applications"
         substitute misc/rio.desktop "$out/share/applications/yazelix-terminal.desktop" \
-          --replace-fail "TryExec=rio" "TryExec=$out/bin/yazelix-terminal" \
-          --replace-fail "Exec=rio" "Exec=$out/bin/yazelix-terminal --app-id yazelix-terminal" \
+          --replace-fail "TryExec=rio" "TryExec=$out/bin/yazelix-terminal-desktop" \
+          --replace-fail "Exec=rio" "Exec=$out/bin/yazelix-terminal-desktop" \
           --replace-fail "Icon=rio" "Icon=yazelix-terminal" \
           --replace-fail "Name=Rio" "Name=Yazelix Terminal" \
           --replace-fail "StartupWMClass=Rio" "StartupWMClass=yazelix-terminal"$'\n'"StartupNotify=true"
