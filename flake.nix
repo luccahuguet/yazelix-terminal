@@ -1,5 +1,5 @@
 {
-  description = "Rio | A hardware-accelerated GPU terminal emulator";
+  description = "Yazelix Terminal | A Rio-derived GPU terminal emulator";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -26,9 +26,11 @@
         # Defines a devshell using the `rust-toolchain`, allowing for
         # different versions of rust to be used.
         mkDevShell = rust-toolchain: let
-          runtimeDeps = self'.packages.rio.runtimeDependencies;
+          runtimeDeps = self'.packages."yazelix-terminal".runtimeDependencies;
           tools =
-            self'.packages.rio.nativeBuildInputs ++ self'.packages.rio.buildInputs ++ [rust-toolchain];
+            self'.packages."yazelix-terminal".nativeBuildInputs
+            ++ self'.packages."yazelix-terminal".buildInputs
+            ++ [rust-toolchain];
         in
           pkgs.mkShell {
             packages = [self'.formatter] ++ tools;
@@ -41,6 +43,16 @@
           rio = msrv;
           default = rio;
         };
+        packageFor = rust-toolchain:
+          pkgs.callPackage ./pkgRio.nix {inherit rust-toolchain;};
+        defaultPackage = packageFor toolchains.default;
+        msrvPackage = packageFor toolchains.msrv;
+        stablePackage = packageFor toolchains.stable;
+        nightlyPackage = packageFor toolchains.nightly;
+        appFor = package: {
+          type = "app";
+          program = "${package}/bin/yazelix-terminal";
+        };
       in {
         formatter = pkgs.alejandra;
         _module.args.pkgs = import inputs.nixpkgs {
@@ -48,19 +60,34 @@
           overlays = [(import inputs.rust-overlay)];
         };
 
-        # Create overlay to override `rio` with this flake's default
-        overlayAttrs = {inherit (self'.packages) rio;};
-        packages =
-          lib.mapAttrs' (
-            k: v: {
-              name =
-                if builtins.elem k ["rio" "default"]
-                then k
-                else "rio-${k}";
-              value = pkgs.callPackage ./pkgRio.nix {rust-toolchain = v;};
-            }
-          )
-          toolchains;
+        overlayAttrs = {
+          yazelix-terminal = self'.packages."yazelix-terminal";
+          rio = self'.packages."yazelix-terminal";
+        };
+        packages = {
+          default = defaultPackage;
+          yazelix-terminal = defaultPackage;
+          rio = defaultPackage;
+          yazelix-terminal-msrv = msrvPackage;
+          yazelix-terminal-stable = stablePackage;
+          yazelix-terminal-nightly = nightlyPackage;
+          rio-msrv = msrvPackage;
+          rio-stable = stablePackage;
+          rio-nightly = nightlyPackage;
+        };
+        apps = {
+          default = appFor self'.packages."yazelix-terminal";
+          yazelix-terminal = appFor self'.packages."yazelix-terminal";
+          rio = appFor self'.packages.rio;
+        };
+        checks = {
+          package = self'.packages."yazelix-terminal";
+          conformance = pkgs.runCommand "yazelix-terminal-conformance" {nativeBuildInputs = [pkgs.python3];} ''
+            cd ${./.}
+            python3 tools/yazelix_conformance.py verify
+            touch "$out"
+          '';
+        };
         # Different devshells for different rust versions
         devShells = lib.mapAttrs (_: v: mkDevShell v) toolchains;
       };
