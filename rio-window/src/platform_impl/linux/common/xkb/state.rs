@@ -189,6 +189,8 @@ impl From<ModifiersState> for crate::keyboard::ModifiersState {
         to_mods.set(crate::keyboard::ModifiersState::CONTROL, mods.ctrl);
         to_mods.set(crate::keyboard::ModifiersState::ALT, mods.alt);
         to_mods.set(crate::keyboard::ModifiersState::SUPER, mods.logo);
+        to_mods.set(crate::keyboard::ModifiersState::CAPS_LOCK, mods.caps_lock);
+        to_mods.set(crate::keyboard::ModifiersState::NUM_LOCK, mods.num_lock);
         to_mods
     }
 }

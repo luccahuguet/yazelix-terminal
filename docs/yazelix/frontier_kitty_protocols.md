@@ -227,9 +227,11 @@ Result:
 
 - The audit lives in `docs/yazelix/kitty_keyboard_audit.md`
 - The conformance harness has all-flags and stack fixture streams
-- Follow-up implementation beads should cover stack edge semantics, full
-  modifier-bit reporting, base-layout alternate keys, and the remaining
-  functional/keypad private-use mappings
+- Stack edge semantics, base-layout alternate keys, exposed functional/keypad
+  private-use mappings, and platform lock-state modifier bits are implemented
+- Remaining limits are platform lock-state gaps where the window layer does not
+  expose reliable state, plus private-use functional keys that `rio-window` does
+  not expose as distinct events
 
 ### Kitty Unscrolling
 

@@ -213,6 +213,12 @@ pub fn keyboard_modifiers(event: &KeyboardEvent) -> ModifiersState {
     if event.meta_key() {
         state |= ModifiersState::SUPER;
     }
+    if event.get_modifier_state("CapsLock") {
+        state |= ModifiersState::CAPS_LOCK;
+    }
+    if event.get_modifier_state("NumLock") {
+        state |= ModifiersState::NUM_LOCK;
+    }
 
     state
 }

@@ -198,8 +198,6 @@ not yet complete:
 - `yzt-7p3.40`: OSC 5522 rich clipboard handles text/plain-compatible payloads,
   but still needs arbitrary MIME/platform clipboard work before it matches the
   full modern protocol surface
-- `yzt-7p3.43`: Kitty keyboard lock-state and niche-key gaps need either
-  implementation through platform APIs or documented impossibility
 - `yzt-7p3.44`: OSC 72 drag-and-drop remains unadvertised until the spec and OS
   routing boundary are mature enough for a safe runtime implementation
 

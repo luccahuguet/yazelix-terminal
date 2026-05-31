@@ -297,6 +297,10 @@ impl LayoutCache {
             ModifiersState::SUPER,
             key_pressed(VK_LWIN) || key_pressed(VK_RWIN),
         );
+        let caps_lock_on = unsafe { GetKeyState(VK_CAPITAL as i32) & 1 != 0 };
+        let num_lock_on = unsafe { GetKeyState(VK_NUMLOCK as i32) & 1 != 0 };
+        mods.set(ModifiersState::CAPS_LOCK, caps_lock_on);
+        mods.set(ModifiersState::NUM_LOCK, num_lock_on);
         mods
     }
 

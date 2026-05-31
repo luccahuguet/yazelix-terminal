@@ -375,6 +375,10 @@ pub(super) fn event_mods(event: &NSEvent) -> Modifiers {
         ModifiersState::SUPER,
         flags.contains(NSEventModifierFlags::NSEventModifierFlagCommand),
     );
+    state.set(
+        ModifiersState::CAPS_LOCK,
+        flags.contains(NSEventModifierFlags::NSEventModifierFlagCapsLock),
+    );
     pressed_mods.set(ModifiersKeys::LSUPER, flags.contains(NX_DEVICELCMDKEYMASK));
     pressed_mods.set(ModifiersKeys::RSUPER, flags.contains(NX_DEVICERCMDKEYMASK));
 

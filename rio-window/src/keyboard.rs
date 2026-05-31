@@ -1690,6 +1690,10 @@ bitflags! {
         const ALT = 0b100 << 6;
         /// This is the "windows" key on PC and "command" key on Mac.
         const SUPER = 0b100 << 9;
+        /// The "Caps lock" modifier is enabled.
+        const CAPS_LOCK = 0b100 << 12;
+        /// The "Num lock" modifier is enabled.
+        const NUM_LOCK = 0b100 << 15;
     }
 }
 
@@ -1712,6 +1716,16 @@ impl ModifiersState {
     /// Returns `true` if the super key is pressed.
     pub fn super_key(&self) -> bool {
         self.intersects(Self::SUPER)
+    }
+
+    /// Returns `true` if CapsLock is enabled.
+    pub fn caps_lock(&self) -> bool {
+        self.intersects(Self::CAPS_LOCK)
+    }
+
+    /// Returns `true` if NumLock is enabled.
+    pub fn num_lock(&self) -> bool {
+        self.intersects(Self::NUM_LOCK)
     }
 }
 

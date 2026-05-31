@@ -14,13 +14,12 @@ use std::borrow::Cow;
 
 #[inline(never)]
 pub fn build_key_sequence(key: &KeyEvent, mods: ModifiersState, mode: Mode) -> Vec<u8> {
-    let mut modifiers = mods.into();
-
     let kitty_seq = mode.intersects(
         Mode::REPORT_ALL_KEYS_AS_ESC
             | Mode::DISAMBIGUATE_ESC_CODES
             | Mode::REPORT_EVENT_TYPES,
     );
+    let mut modifiers = SequenceModifiers::from_modifiers_state(mods, kitty_seq);
 
     let kitty_encode_all = mode.contains(Mode::REPORT_ALL_KEYS_AS_ESC);
     // The default parameter is 1, so we can omit it.
@@ -548,6 +547,19 @@ bitflags::bitflags! {
 }
 
 impl SequenceModifiers {
+    fn from_modifiers_state(mods: ModifiersState, include_locks: bool) -> Self {
+        let mut modifiers = Self::empty();
+        modifiers.set(Self::SHIFT, mods.shift_key());
+        modifiers.set(Self::ALT, mods.alt_key());
+        modifiers.set(Self::CONTROL, mods.control_key());
+        modifiers.set(Self::SUPER, mods.super_key());
+        if include_locks {
+            modifiers.set(Self::CAPS_LOCK, mods.caps_lock());
+            modifiers.set(Self::NUM_LOCK, mods.num_lock());
+        }
+        modifiers
+    }
+
     /// Get the value which should be passed to escape sequence.
     pub fn encode_esc_sequence(self) -> u8 {
         self.bits() + 1
@@ -556,12 +568,7 @@ impl SequenceModifiers {
 
 impl From<ModifiersState> for SequenceModifiers {
     fn from(mods: ModifiersState) -> Self {
-        let mut modifiers = Self::empty();
-        modifiers.set(Self::SHIFT, mods.shift_key());
-        modifiers.set(Self::ALT, mods.alt_key());
-        modifiers.set(Self::CONTROL, mods.control_key());
-        modifiers.set(Self::SUPER, mods.super_key());
-        modifiers
+        Self::from_modifiers_state(mods, true)
     }
 }
 
@@ -645,7 +652,31 @@ mod tests {
         assert!(modifiers.is_empty());
     }
 
-    // Defends: lock modifier bits stay explicit but are not fabricated without platform lock state.
+    // Defends: lock modifier bits report platform lock state when Kitty mode asks for full modifiers.
+    #[test]
+    fn kitty_lock_modifier_bits_report_platform_state() {
+        let modifiers = SequenceModifiers::from_modifiers_state(
+            ModifiersState::CAPS_LOCK | ModifiersState::NUM_LOCK,
+            true,
+        );
+
+        assert!(modifiers.contains(SequenceModifiers::CAPS_LOCK));
+        assert!(modifiers.contains(SequenceModifiers::NUM_LOCK));
+        assert_eq!(modifiers.encode_esc_sequence(), 193);
+    }
+
+    // Defends: lock modifier bits do not leak into legacy xterm modifier escape parameters.
+    #[test]
+    fn kitty_lock_modifier_bits_are_omitted_without_kitty_sequence_mode() {
+        let modifiers = SequenceModifiers::from_modifiers_state(
+            ModifiersState::CAPS_LOCK | ModifiersState::NUM_LOCK,
+            false,
+        );
+
+        assert!(modifiers.is_empty());
+    }
+
+    // Defends: lock modifier bits stay explicit but are not fabricated from lock-key presses.
     #[test]
     fn kitty_lock_modifier_bits_are_not_inferred_from_keypress() {
         let mut modifiers = SequenceModifiers::empty();

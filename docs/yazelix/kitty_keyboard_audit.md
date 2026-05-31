@@ -9,12 +9,12 @@ Reviewed on 2026-05-31 against:
 - Backend handler state: `rio-backend/src/crosswords/mod.rs`
 - Black-box comparison fixtures: `docs/yazelix/kitty_keyboard_blackbox.md`
 
-The result is strong but not yet parity-complete. The mode bits, query path,
-screen-local stacks, common CSI-u emission, repeat/release emission, associated
-text, most private-use function keys, and most numpad keys are present. The
-remaining risks are exact stack edge semantics, full modifier-bit reporting,
-base-layout alternate keys, and a few private-use functional keys that winit can
-surface but Rio does not encode yet.
+The result is strong. The mode bits, query path, screen-local stacks, common
+CSI-u emission, repeat/release emission, associated text, base-layout alternate
+keys, lock-state modifier bits where the platform exposes them, private-use
+function keys, and numpad keys are present. The remaining limits are platform
+lock-state availability and a few private-use functional keys that `rio-window`
+does not expose as distinct events today.
 
 ## Spec Anchors
 
@@ -57,34 +57,40 @@ stack resets all flags, and a push into a full stack evicts the oldest entry.
 - `REPORT_ALTERNATE_KEYS` emits a shifted alternate codepoint when Rio can infer
   one
 - F13-F35, ScrollLock, PrintScreen, Pause, ContextMenu, media playback keys,
-  volume keys, left/right modifiers, CapsLock, and NumLock have private-use
-  code mappings
+  volume keys, left/right modifiers, CapsLock, NumLock, and ISO level 3 shift
+  have private-use code mappings
 - Common keypad numbers, operators, Enter, arrows, paging, Home/End, Insert, and
-  Delete map to Kitty keypad codepoints when `KeyLocation::Numpad` is present
+  Delete map to Kitty keypad codepoints when `KeyLocation::Numpad` is present,
+  including keypad separator and keypad begin/clear
+- CapsLock and NumLock modifier bits are reported from platform lock state in
+  enhanced Kitty keyboard mode when `rio-window` exposes that state. This is
+  wired through Linux XKB, Windows, Web, and macOS CapsLock. macOS NumLock and
+  other platforms that do not expose a reliable NumLock state leave the bit
+  unset.
+- Lock-state modifier bits are intentionally excluded from legacy xterm
+  modifier sequences so CapsLock does not perturb normal arrow/function-key
+  escapes outside Kitty keyboard mode
 
 ## Gaps
 
 ### Stack Edge Semantics
 
-The backend stores a fixed array plus an active index. Popping more than the
-stack depth clears the stack, but popping one entry while already at index zero
-wraps to the last slot. The spec says a pop that empties the stack resets all
-flags. The current `test_keyboard_mode_stack_underflow_protection` test codifies
-the wrap behavior, so this should be fixed deliberately with a new regression
-test.
+Stack edge semantics are covered by regressions:
 
-The full-stack behavior is also circular overwrite rather than an explicit
-"oldest entry evicted" stack model. It may be equivalent for some access
-patterns, but the audit should not claim exact spec parity until push/pop order
-is tested against overflow.
+- popping an empty/base stack resets all flags instead of wrapping
+- popping nested entries restores the previous stack entry
+- pushing into a full stack evicts the oldest entry
 
 ### Modifier Bits
 
-`SequenceModifiers` reports shift, alt, control, super, hyper, and meta.
-CapsLock and NumLock bits are defined but intentionally not inferred from key
-presses, because Kitty wants enabled lock state and `rio-window::ModifiersState`
-does not expose lock state today. CapsLock and NumLock key events still have
-their private-use key codes; only the lock modifier bits remain platform-limited.
+`SequenceModifiers` reports shift, alt, control, super, hyper, meta, CapsLock,
+and NumLock. CapsLock and NumLock key events also have their private-use key
+codes. Lock bits are only reported from platform lock-state events, not inferred
+from the lock keypress itself, because Kitty wants enabled lock state rather
+than "this lock key is currently being pressed".
+
+Remaining limit: NumLock is still platform-limited where the window/input layer
+does not expose a reliable enabled state, such as macOS.
 
 ### Base-Layout Alternate Keys
 
@@ -99,18 +105,16 @@ not assigned a guessed base-layout value.
 
 ### Functional And Keypad Coverage
 
-The current mapping covers the important editor and shell keys, but it does not
-cover every Kitty private-use key Rio can observe. Known holes from the local
-source audit:
+The current mapping covers the important editor and shell keys and the exposed
+private-use keys Rio can observe. Known holes from the local source audit:
 
 - `MEDIA_REVERSE` (`57431`) is not mapped because `rio-window` does not expose a
   distinct reverse-media key today
 - ISO level 5 shift (`57454`) is not mapped because the local XKB adapter leaves
   ISO level 5 keysyms commented out instead of exposing a `NamedKey`
 
-The first implementation follow-up after this audit filled the table entries
-Rio does expose directly: `KP_SEPARATOR` (`57416`), `KP_BEGIN` (`57427~`), and
-ISO level 3 shift through `NamedKey::AltGraph` (`57453`).
+Rio exposes and encodes `KP_SEPARATOR` (`57416`), `KP_BEGIN` (`57427~`), and ISO
+level 3 shift through `NamedKey::AltGraph` (`57453`).
 
 ## Compatibility Impact
 
@@ -121,17 +125,14 @@ cases:
 
 - non-Latin keyboard layout shortcut matching
 - apps that rely on exact stack behavior after nested keyboard-mode users
-- games or TUI input test tools that inspect Hyper/Meta/Caps/Num modifier bits
-- keypad separator/begin keys on keyboards that expose them distinctly
+- games or TUI input test tools that inspect NumLock on platforms without a
+  reliable NumLock state
 
 ## Follow-Up Work
 
-- Keep tracking CapsLock/NumLock modifier-bit reporting until the platform
-  window/input layer exposes reliable lock state
+- Keep tracking NumLock modifier-bit reporting on platforms where the
+  window/input layer does not expose reliable lock state
 - Decide whether niche private-use keys outside the exposed `rio-window` key set
   are implementable, or document them as platform-impossible instead of guessing
-- Add full modifier-bit support where platform events expose the needed state
-- Implement base-layout alternate keys from `physical_key`
-- Fill the remaining Kitty functional/keypad private-use mappings
 - Run black-box key captures comparing Rio, Ghostty, and Kitty for the checked-in
   Helix/Yazi/Nushell/Zellij-oriented case matrix
