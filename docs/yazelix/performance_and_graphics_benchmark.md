@@ -140,11 +140,37 @@ python3 tools/yazelix_benchmark.py frame-run --workload idle
 python3 tools/yazelix_benchmark.py frame-run --workload kitty-graphics
 python3 tools/yazelix_benchmark.py frame-run --workload sixel
 python3 tools/yazelix_benchmark.py frame-run --config-template wgpu-shader --workload idle --hold-seconds 10
+python3 tools/yazelix_benchmark.py frame-run --config-template yzt-default --workload helix-jk --lines 4000 --hold-seconds 1
+python3 tools/yazelix_benchmark.py frame-run --config-template yzt-default --workload helix-viewport --lines 400 --hold-seconds 1
 ```
 
 The `wgpu-shader` template enables the Ghostty cursor shader probe and Rio's
 game render strategy, which makes long-running shader animation stability
 measurable from the same frame log.
+
+The Helix-style workloads are deterministic proxies for editor movement without
+GUI key injection:
+
+- `helix-jk` moves the terminal cursor inside a stable viewport.
+- `helix-viewport` models Helix scroll-margin behavior: once the cursor reaches
+  the top or bottom five visible lines and movement continues in that
+  direction, the viewport follows and rows are repainted.
+
+Use `helix-viewport` as the primary workload for latency that appears near the
+top or bottom of the editor viewport. Use this matrix when investigating
+interactive cursor latency:
+
+```bash
+python3 tools/yazelix_benchmark.py frame-run --config-template wgpu-no-effects --workload helix-viewport --lines 400 --hold-seconds 1
+python3 tools/yazelix_benchmark.py frame-run --config-template wgpu-shader-event --workload helix-viewport --lines 400 --hold-seconds 1
+python3 tools/yazelix_benchmark.py frame-run --config-template yzt-default --workload helix-viewport --lines 400 --hold-seconds 1
+python3 tools/yazelix_benchmark.py frame-run --config-template yzt-default-game --workload helix-viewport --lines 400 --hold-seconds 1
+```
+
+For packaged `yazelix-terminal`, the runtime no-effects equivalent is
+`YAZELIX_TERMINAL_PROFILE=baseline`. That profile keeps the packaged WebGPU,
+font, and window settings while removing custom shaders and trail cursor
+effects, so it is the first comparison to run before blaming event scheduling.
 
 For Ghostty or another terminal binary, pass terminal arguments before the
 child `-e` command with repeated `--terminal-arg=...` values:
@@ -220,5 +246,7 @@ The next useful benchmark work should add:
 - direct Ghostty frame pacing instrumentation if an external or source-level
   hook is found
 - longer shader stability runs after the throttled game loop fix
+- real Helix key-injection captures to complement the deterministic
+  `helix-jk` and `helix-viewport` proxies
 
 Tracked as Bead `yzt-7p3.41`.

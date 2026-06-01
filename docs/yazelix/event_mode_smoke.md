@@ -12,7 +12,9 @@ tools/yazelix_event_mode_smoke.sh ./result_yazelix_terminal_package
 The script verifies that the packaged config does not default to
 `renderer.strategy = "game"`, that the desktop wrapper starts with the packaged
 config, and that `YAZELIX_TERMINAL_RENDER_STRATEGY=game` still materializes a
-valid escape-hatch config.
+valid escape-hatch config. It also verifies that
+`YAZELIX_TERMINAL_PROFILE=baseline` starts a no-effects config and composes
+with the game-mode diagnostic path.
 
 Manual session smoke:
 

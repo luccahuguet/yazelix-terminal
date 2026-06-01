@@ -58,6 +58,11 @@ in
           --replace-fail "@yazelix_terminal_font_dir@" "$out/share/yazelix-terminal/fonts" \
           --replace-fail "@yazelix_terminal_emoji_font_dir@" "${noto-fonts-color-emoji}/share/fonts/truetype" \
           --replace-fail "@yazelix_terminal_shader_dir@" "$out/share/yazelix-terminal/shaders"
+        install -dm 755 $out/share/yazelix-terminal/baseline
+        substitute misc/yazelix_terminal_config_baseline.toml \
+          $out/share/yazelix-terminal/baseline/config.toml \
+          --replace-fail "@yazelix_terminal_font_dir@" "$out/share/yazelix-terminal/fonts" \
+          --replace-fail "@yazelix_terminal_emoji_font_dir@" "${noto-fonts-color-emoji}/share/fonts/truetype"
 
         makeWrapper "${unwrapped}/bin/rio" "$out/bin/rio" \
           --set YAZELIX_TERMINAL_CHILD_ENV_SANITIZE 1 \
@@ -66,7 +71,8 @@ in
         ln -s "$out/bin/rio" "$out/bin/yazelix-terminal"
         substitute misc/yazelix_terminal_desktop.sh "$out/bin/yazelix-terminal-desktop" \
           --replace-fail "@yazelix_terminal_binary@" "$out/bin/yazelix-terminal" \
-          --replace-fail "@yazelix_terminal_config_home@" "$out/share/yazelix-terminal"
+          --replace-fail "@yazelix_terminal_config_home@" "$out/share/yazelix-terminal" \
+          --replace-fail "@yazelix_terminal_baseline_config_home@" "$out/share/yazelix-terminal/baseline"
         chmod 755 "$out/bin/yazelix-terminal-desktop"
 
         install -dm 755 "$out/share/applications"

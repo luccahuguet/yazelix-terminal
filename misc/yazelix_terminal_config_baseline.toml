@@ -1,0 +1,20 @@
+confirm-before-quit = false
+
+[renderer]
+backend = "Webgpu"
+
+[window]
+decorations = "Disabled"
+
+[fonts]
+family = "cascadiacode"
+size = 18.0
+additional-dirs = [
+  "@yazelix_terminal_font_dir@",
+  "@yazelix_terminal_emoji_font_dir@",
+]
+symbol-map = [
+  { start = "E000", end = "F900", font-family = "Symbols Nerd Font Mono" },
+  { start = "F0001", end = "F1AF1", font-family = "Symbols Nerd Font Mono" },
+  { start = "1F000", end = "1FB00", font-family = "Noto Color Emoji" },
+]

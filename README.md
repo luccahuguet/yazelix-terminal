@@ -30,6 +30,7 @@ The package installs:
 - `bin/yazelix-terminal-desktop`
 - `share/applications/yazelix-terminal.desktop`
 - `share/yazelix-terminal/config.toml`
+- `share/yazelix-terminal/baseline/config.toml`
 
 The desktop wrapper sets `--app-id yazelix-terminal`, searches for available
 Nix graphics wrappers, and maps Yazelix-owned config directories into Rio's
@@ -40,14 +41,20 @@ do not inherit Yazelix Terminal's private `RIO_CONFIG_HOME` or package loader
 paths, so plain host `rio` invocations keep using the user's host Rio defaults.
 The packaged config disables confirm-before-quit, disables native window
 decorations, sets the terminal font size to `18.0`, and uses the default event
-renderer strategy. `YAZELIX_TERMINAL_RENDER_STRATEGY=game` is kept as an
-explicit diagnostic override.
+renderer strategy with WebGPU, packaged cursor shaders, and trail cursor
+effects. `YAZELIX_TERMINAL_PROFILE=baseline` selects the same packaged font,
+window, and WebGPU baseline without custom shaders or trail cursor effects for
+performance comparisons. `YAZELIX_TERMINAL_RENDER_STRATEGY=game` is kept as an
+explicit diagnostic override and composes with either profile.
 
 Wrapper override knobs:
 
 | Variable | Behavior |
 | --- | --- |
 | `YAZELIX_TERMINAL_CONFIG` | Uses a custom Rio config directory; must contain readable `config.toml` |
+| `YAZELIX_TERMINAL_PROFILE=full` | Uses the packaged shader/trail defaults |
+| `YAZELIX_TERMINAL_PROFILE=baseline` | Uses the packaged no-effects baseline config |
+| `YAZELIX_TERMINAL_EFFECTS=none` | Alias for the baseline no-effects profile |
 | `YAZELIX_TERMINAL_RENDER_STRATEGY=events` | Uses the packaged config with Rio's default event renderer strategy |
 | `YAZELIX_TERMINAL_RENDER_STRATEGY=game` | Creates a runtime copy of the packaged config with `strategy = "game"` for diagnostics |
 | `YAZELIX_TERMINAL_GRAPHICS_WRAPPER=none` | Skips automatic nixGL/nixVulkan wrapper discovery |

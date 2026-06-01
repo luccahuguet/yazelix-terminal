@@ -18,6 +18,15 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ARTIFACT_ROOT = ROOT / "artifacts" / "benchmarks" / "frame_time"
 DEFAULT_SHADER = ROOT / "conformance" / "shaders" / "ghostty_cursor_probe.glsl"
+YAZELIX_SHADER_DIR = ROOT / "misc" / "yazelix_terminal_shaders"
+WGPU_CONFIG_TEMPLATES = {
+    "wgpu",
+    "wgpu-no-effects",
+    "wgpu-shader",
+    "wgpu-shader-event",
+    "yzt-default",
+    "yzt-default-game",
+}
 
 
 def default_terminal() -> Path:
@@ -35,6 +44,18 @@ def json_string(value: str) -> str:
     return json.dumps(value)
 
 
+def shader_list(paths: list[Path]) -> str:
+    return "[\n  " + ",\n  ".join(json_string(str(path)) for path in paths) + "\n]"
+
+
+def yazelix_default_shader_paths() -> list[Path]:
+    return [
+        YAZELIX_SHADER_DIR / "cursor_trail_dusk.glsl",
+        YAZELIX_SHADER_DIR / "generated_effects" / "sweep.glsl",
+        YAZELIX_SHADER_DIR / "generated_effects" / "rectangle_boom.glsl",
+    ]
+
+
 def write_rio_config(config_home: Path, template: str) -> Path | None:
     if template == "host":
         return None
@@ -43,14 +64,25 @@ def write_rio_config(config_home: Path, template: str) -> Path | None:
     config = config_home / "config.toml"
     if template == "cpu":
         text = "[renderer]\nuse-cpu = true\n"
-    elif template == "wgpu":
+    elif template in {"wgpu", "wgpu-no-effects"}:
         text = '[renderer]\nbackend = "Webgpu"\n'
-    elif template == "wgpu-shader":
+    elif template in {"wgpu-shader", "wgpu-shader-event"}:
+        strategy = 'strategy = "game"\n' if template == "wgpu-shader" else ""
         text = (
             '[renderer]\n'
             'backend = "Webgpu"\n'
-            'strategy = "Game"\n'
+            f"{strategy}"
             f"custom-shader = [{json_string(str(DEFAULT_SHADER))}]\n"
+        )
+    elif template in {"yzt-default", "yzt-default-game"}:
+        strategy = 'strategy = "game"\n' if template == "yzt-default-game" else ""
+        text = (
+            '[renderer]\n'
+            'backend = "Webgpu"\n'
+            f"{strategy}"
+            f"custom-shader = {shader_list(yazelix_default_shader_paths())}\n"
+            "\n[effects]\n"
+            "trail-cursor = true\n"
         )
     else:
         raise SystemExit(f"unsupported config template: {template}")
@@ -77,10 +109,152 @@ def built_in_workload(name: str, lines: int, hold_seconds: float) -> list[str]:
             "python3 tools/yazelix_conformance.py emit sixel_minimal; "
             f"printf '\\nsixel fixture emitted\\n'; sleep {hold_seconds}"
         )
+    elif name == "helix-jk":
+        script = f"""
+python3 - <<'PY'
+import shutil
+import sys
+import time
+
+moves = max(1, {lines})
+hold_seconds = max(0.0, {hold_seconds!r})
+terminal_size = shutil.get_terminal_size((80, 24))
+rows = max(12, min(terminal_size.lines - 2, 48))
+row = 0
+direction = 1
+
+sys.stdout.write("\\x1b[?25h\\x1b[2J\\x1b[H")
+for index in range(rows):
+    sys.stdout.write(
+        f"{{index + 1:03d}} helix cursor churn line {{index + 1:03d}} "
+        "abcdefghijklmnopqrstuvwxyz 0123456789\\r\\n"
+    )
+sys.stdout.write("\\x1b[H")
+sys.stdout.flush()
+
+for index in range(moves):
+    if row >= rows - 2:
+        direction = -1
+    elif row <= 0:
+        direction = 1
+    row += direction
+    sys.stdout.write("\\x1b[B" if direction > 0 else "\\x1b[A")
+    if index % 8 == 7:
+        sys.stdout.flush()
+        time.sleep(0.002)
+
+sys.stdout.flush()
+time.sleep(hold_seconds)
+PY
+"""
+    elif name == "helix-viewport":
+        script = f"""
+python3 - <<'PY'
+import shutil
+import sys
+import time
+
+moves = max(1, {lines})
+hold_seconds = max(0.0, {hold_seconds!r})
+terminal_size = shutil.get_terminal_size((80, 24))
+viewport_rows = max(12, min(terminal_size.lines - 2, 48))
+viewport_cols = max(20, min(terminal_size.columns, 120))
+scroll_margin = 5 if viewport_rows >= 16 else max(2, viewport_rows // 4)
+file_line_count = max(viewport_rows * 4, moves + viewport_rows)
+cursor_line = 0
+viewport_top = 0
+direction = 1
+
+
+def file_line(index):
+    marker = ">" if index == cursor_line else " "
+    text = (
+        f"{{marker}} {{index + 1:05d}} "
+        "helix viewport benchmark "
+        "abcdefghijklmnopqrstuvwxyz 0123456789"
+    )
+    return text[: max(1, viewport_cols - 1)]
+
+
+def draw_viewport():
+    sys.stdout.write("\\x1b[H")
+    for row in range(viewport_rows):
+        sys.stdout.write(f"\\x1b[{{row + 1}};1H\\x1b[2K{{file_line(viewport_top + row)}}")
+    draw_status()
+    move_cursor()
+
+
+def draw_status():
+    status_row = viewport_rows + 1
+    text = (
+        f" helix-like viewport top={{viewport_top + 1}} "
+        f"cursor={{cursor_line + 1}} margin={{scroll_margin}} "
+    )
+    sys.stdout.write(f"\\x1b[{{status_row}};1H\\x1b[7m{{text[: max(1, viewport_cols - 1)]}}\\x1b[0m")
+
+
+def move_cursor():
+    screen_row = cursor_line - viewport_top
+    sys.stdout.write(f"\\x1b[{{screen_row + 1}};3H")
+
+
+sys.stdout.write("\\x1b[?1049h\\x1b[?25h\\x1b[2J")
+draw_viewport()
+sys.stdout.flush()
+
+for index in range(moves):
+    old_cursor = cursor_line
+    old_top = viewport_top
+
+    if cursor_line >= file_line_count - 1:
+        direction = -1
+    elif cursor_line <= 0:
+        direction = 1
+
+    cursor_line += direction
+    bottom_margin_line = viewport_top + viewport_rows - scroll_margin - 1
+    top_margin_line = viewport_top + scroll_margin
+
+    if cursor_line > bottom_margin_line:
+        viewport_top = min(
+            cursor_line - (viewport_rows - scroll_margin - 1),
+            file_line_count - viewport_rows,
+        )
+    elif cursor_line < top_margin_line:
+        viewport_top = max(cursor_line - scroll_margin, 0)
+
+    if viewport_top != old_top:
+        draw_viewport()
+    else:
+        for changed in sorted({{old_cursor, cursor_line}}):
+            if viewport_top <= changed < viewport_top + viewport_rows:
+                row = changed - viewport_top
+                sys.stdout.write(f"\\x1b[{{row + 1}};1H\\x1b[2K{{file_line(changed)}}")
+        draw_status()
+        move_cursor()
+
+    if index % 8 == 7:
+        sys.stdout.flush()
+        time.sleep(0.002)
+
+sys.stdout.flush()
+time.sleep(hold_seconds)
+sys.stdout.write("\\x1b[?1049l")
+sys.stdout.flush()
+PY
+"""
     else:
         raise SystemExit(f"unsupported workload: {name}")
 
     return ["bash", "--noprofile", "--norc", "-c", script]
+
+
+def default_workload_lines(workload: str) -> int:
+    if workload == "helix-jk":
+        return 4_000
+    if workload == "helix-viewport":
+        return 400
+    return 20_000
 
 
 def read_proc_sample(pid: int, start_ns: int) -> dict[str, int] | None:
@@ -314,7 +488,8 @@ def child_command_from_args(args: argparse.Namespace) -> list[str]:
         if not command:
             raise SystemExit("--command requires argv after --")
         return command
-    return built_in_workload(args.workload, args.lines, args.hold_seconds)
+    lines = args.lines if args.lines is not None else default_workload_lines(args.workload)
+    return built_in_workload(args.workload, lines, args.hold_seconds)
 
 
 def command_frame_run(args: argparse.Namespace) -> int:
@@ -337,7 +512,7 @@ def command_frame_run(args: argparse.Namespace) -> int:
     env["YAZELIX_TERMINAL_FRAME_LOG"] = str(frame_log)
     if config_path is not None:
         env["RIO_CONFIG_HOME"] = str(config_home)
-    if args.config_template.startswith("wgpu"):
+    if args.config_template in WGPU_CONFIG_TEMPLATES:
         env.setdefault("WGPU_BACKEND", "vulkan")
     for item in args.env:
         if "=" not in item:
@@ -459,6 +634,28 @@ def command_self_test(_: argparse.Namespace) -> int:
         assert summary["redraw_delta_ms"]["count"] == 2
         assert summary["presented_delta_ms"]["count"] == 1
         assert summary["presented_delta_ms"]["max"] == 33.0
+        config_home = Path(temp_dir) / "rio_config_home"
+        config = write_rio_config(config_home, "yzt-default")
+        assert config is not None
+        config_text = config.read_text(encoding="utf-8")
+        assert "cursor_trail_dusk.glsl" in config_text
+        assert "trail-cursor = true" in config_text
+        baseline_config = write_rio_config(config_home, "wgpu-no-effects")
+        assert baseline_config is not None
+        baseline_text = baseline_config.read_text(encoding="utf-8")
+        assert "custom-shader" not in baseline_text
+        assert "trail-cursor" not in baseline_text
+        assert child_command_from_args(
+            argparse.Namespace(command=[], workload="helix-jk", lines=16, hold_seconds=0.01)
+        )
+        assert child_command_from_args(
+            argparse.Namespace(
+                command=[],
+                workload="helix-viewport",
+                lines=16,
+                hold_seconds=0.01,
+            )
+        )
     print("ok yazelix_benchmark self-test")
     return 0
 
@@ -481,15 +678,35 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--artifact-dir")
     run.add_argument(
         "--config-template",
-        choices=["host", "cpu", "wgpu", "wgpu-shader"],
+        choices=[
+            "host",
+            "cpu",
+            "wgpu",
+            "wgpu-no-effects",
+            "wgpu-shader",
+            "wgpu-shader-event",
+            "yzt-default",
+            "yzt-default-game",
+        ],
         default="wgpu",
     )
     run.add_argument(
         "--workload",
-        choices=["scroll", "idle", "kitty-graphics", "sixel"],
+        choices=[
+            "scroll",
+            "idle",
+            "kitty-graphics",
+            "sixel",
+            "helix-jk",
+            "helix-viewport",
+        ],
         default="scroll",
     )
-    run.add_argument("--lines", type=int, default=20_000)
+    run.add_argument(
+        "--lines",
+        type=int,
+        help="workload iteration count; defaults to 20000 for scroll-like workloads, 4000 for helix-jk, and 400 for helix-viewport",
+    )
     run.add_argument("--hold-seconds", type=float, default=0.2)
     run.add_argument("--sample-interval", type=float, default=0.05)
     run.add_argument("--timeout", type=float, default=15.0)

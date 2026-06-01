@@ -3,6 +3,7 @@ set -eu
 
 binary="@yazelix_terminal_binary@"
 default_config_home="@yazelix_terminal_config_home@"
+baseline_config_home="@yazelix_terminal_baseline_config_home@"
 
 is_executable() {
   [ -n "$1" ] && [ -x "$1" ]
@@ -116,16 +117,17 @@ configure_rio_config() {
     exit 127
   fi
 
+  selected_config_home="$(select_default_config_home)"
   case "${YAZELIX_TERMINAL_RENDER_STRATEGY:-events}" in
     events | Events | EVENTS | event | Event | EVENT | default | none | NONE | 0)
-      export RIO_CONFIG_HOME="$default_config_home"
+      export RIO_CONFIG_HOME="$selected_config_home"
       export YAZELIX_TERMINAL_CHILD_ENV_SANITIZE=1
       ;;
     game | Game | GAME)
       config_parent="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/yazelix-terminal"
       config_home="$config_parent/game-config"
       mkdir -p "$config_home"
-      write_game_config "$default_config_home/config.toml" "$config_home/config.toml"
+      write_game_config "$selected_config_home/config.toml" "$config_home/config.toml"
       chmod 600 "$config_home/config.toml"
       export RIO_CONFIG_HOME="$config_home"
       export YAZELIX_TERMINAL_CHILD_ENV_SANITIZE=1
@@ -133,6 +135,22 @@ configure_rio_config() {
     *)
       printf 'Unsupported YAZELIX_TERMINAL_RENDER_STRATEGY: %s\n' "$YAZELIX_TERMINAL_RENDER_STRATEGY" >&2
       printf 'Use events, game, default, none, or 0.\n' >&2
+      exit 64
+      ;;
+  esac
+}
+
+select_default_config_home() {
+  case "${YAZELIX_TERMINAL_PROFILE:-${YAZELIX_TERMINAL_EFFECTS:-full}}" in
+    "" | full | Full | FULL | effects | Effects | EFFECTS | default | Default | DEFAULT)
+      printf '%s\n' "$default_config_home"
+      ;;
+    baseline | Baseline | BASELINE | no-effects | no_effects | none | None | NONE | 0)
+      printf '%s\n' "$baseline_config_home"
+      ;;
+    *)
+      printf 'Unsupported YAZELIX_TERMINAL_PROFILE/YAZELIX_TERMINAL_EFFECTS: %s\n' "${YAZELIX_TERMINAL_PROFILE:-${YAZELIX_TERMINAL_EFFECTS:-}}" >&2
+      printf 'Use full, default, baseline, no-effects, none, or 0.\n' >&2
       exit 64
       ;;
   esac
