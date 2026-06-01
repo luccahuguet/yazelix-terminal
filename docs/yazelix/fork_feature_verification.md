@@ -1,12 +1,17 @@
 # Yazelix Terminal Fork Feature Verification
 
-Status: evidence ledger for fork work completed through commit `420e8565be`.
+Status: evidence ledger for fork work completed through commit `0880df924a`.
 
 The fork starts from Rio `7e18dde1c90182a5170a7cca7779544967d7291c` and targets
 the Ghostty-level terminal behavior Yazelix needs while keeping Zellij, Yazi,
 and Helix as the workspace stack. This document summarizes the implemented fork
 delta and the verification evidence recorded for each feature or protocol
 surface.
+
+Rows in the fork-owned sections describe behavior the fork implements, packages,
+or documents directly. The validated pre-existing section is separate on
+purpose: those rows record Rio or terminal-protocol behavior that the fork
+keeps covered, but they should not be counted as Yazelix-added features.
 
 Related docs:
 
@@ -39,9 +44,19 @@ python3 tools/yazelix_conformance.py verify
 git diff --check
 ```
 
-`cargo check -p rioterm` still reports the pre-existing
-`rio-window/src/platform_impl/linux/x11/ime/context.rs` function-item cast
-warning. It is not introduced by the Yazelix fork work.
+The current focused package checks also include:
+
+```bash
+cargo fmt -- --check
+cargo check -p rioterm --no-default-features --features wgpu,x11,wayland
+cargo test -p rio-window
+cargo test --features wgpu ghostty -- --nocapture
+nix build .#yazelix-terminal-fast
+tools/yazelix_event_mode_smoke.sh ./result_yazelix_terminal_fast_package
+```
+
+The X11 IME callback cast warning is fixed in `0880df924a`; the focused
+`rioterm` check above is warning-free.
 
 ## Fork And Harness Foundation
 
@@ -63,26 +78,37 @@ warning. It is not introduced by the Yazelix fork work.
 | WGPU/Vulkan validation | Validates shader screenshots with `WGPU_BACKEND=vulkan` on the local COSMIC Wayland/NVIDIA host | `python3 tools/yazelix_conformance.py launch-wgpu-shader-screenshot`; `python3 -m py_compile tools/yazelix_conformance.py`; `python3 tools/yazelix_conformance.py verify`; screenshot `artifacts/shader_probe/screenshots/wgpu_shader_probe_vulkan.png` |
 | Yazelix Ghostty shader presets | Validates the generated Yazelix Ghostty cursor shader stack and moves the Shadertoy wrapper after user shader source for Naga compatibility | `cargo fmt`; `sugarloaf` Ghostty shader tests with `YAZELIX_GHOSTTY_SHADER_DIR`; `cargo check -p rioterm --features wgpu`; `python3 -m py_compile tools/yazelix_conformance.py`; `python3 tools/yazelix_conformance.py verify`; `git diff --check`; manual screenshot inspection; screenshot `artifacts/shader_probe/screenshots/yazelix_default_cursor_stack_gl.png` |
 | Shader redraw throttling | Replaces immediate game-mode redraw requests with a vblank-interval scheduler tick | `cargo fmt --check`; `cargo check -p rioterm`; `cargo build -p rioterm --release`; throttled frame-run benchmark; `python3 tools/yazelix_benchmark.py self-test`; `python3 tools/yazelix_conformance.py verify`; `git diff --check`; benchmark dropped shader idle from 69,688 presented frames and about 96.9% sampled CPU to 237 presented frames and about 2.5% sampled CPU over the same 4s workload |
+| Packaged cursor shader defaults | Builds the packaged terminal with WGPU, installs Yazelix Ghostty-style cursor shader assets under `share/yazelix-terminal/shaders`, selects `backend = "Webgpu"`, wires the packaged `custom-shader` list, and enables `trail-cursor` | `cargo fmt -- --check`; `cargo test --features wgpu ghostty -- --nocapture`; `cargo check -p rioterm --no-default-features --features wgpu,x11,wayland`; `nix build .#yazelix-terminal-fast`; `tools/yazelix_event_mode_smoke.sh ./result_yazelix_terminal_fast_package`; manual packaged-window typing confirmation |
+| Event-mode cursor animation | Treats Ghostty cursor shader frame-state changes as an explicit redraw source so cursor shader/trail animation works without global `renderer.strategy = "game"` | `cargo test --features wgpu ghostty -- --nocapture`; `cargo check -p rioterm --no-default-features --features wgpu,x11,wayland`; `tools/yazelix_event_mode_smoke.sh ./result_yazelix_terminal_fast_package`; manual confirmation that shader appears while typing under event mode |
 
 ## Yazelix Host Mode And Stack Validation
 
 | Surface | Implemented or documented behavior | Verification evidence |
 | --- | --- | --- |
 | Yazelix terminal host mode | Provides `--yazelix`, requires `-e/--command`, defaults app id to `yazelix-terminal`, sets `TERM_PROGRAM=yazelix-terminal`, and disables Rio split/config-editor ownership in Yazelix mode | `rioterm` `yazelix_mode` tests; `cargo fmt --check`; `python3 tools/yazelix_conformance.py verify`; `git diff --check`; `cargo check -p rioterm` with platform features |
-| Desktop Wayland event wakeup | Calls `pre_present_notify()` only for frames that will actually present, keeps the packaged desktop config on Rio's default event renderer strategy, and preserves an explicit `YAZELIX_TERMINAL_RENDER_STRATEGY=game` diagnostic overlay | `sh -n misc/yazelix_terminal_desktop.sh`; `git diff --check`; `cargo +1.96 fmt -- --check`; `cargo +1.96 check -p rioterm --features wgpu`; manual COSMIC/Wayland desktop launcher typing, `yzx enter`, and snappiness test |
+| Desktop Wayland event wakeup | Calls `pre_present_notify()` only for frames that will actually present, keeps the packaged desktop config on Rio's default event renderer strategy, and preserves an explicit `YAZELIX_TERMINAL_RENDER_STRATEGY=game` diagnostic overlay | `sh -n misc/yazelix_terminal_desktop.sh`; `git diff --check`; `cargo fmt -- --check`; `cargo check -p rioterm --no-default-features --features wgpu,x11,wayland`; `tools/yazelix_event_mode_smoke.sh ./result_yazelix_terminal_fast_package`; manual COSMIC/Wayland desktop launcher typing, `yzx enter`, and snappiness test |
 | Stack graphics validation | Validates Yazelix under `target/debug/rio --yazelix` with WGPU/GL; fixes atlas Sixel/iTerm rendering, Kitty `U=1` virtual placement dimensions, virtual source rectangles, and child terminal identity | Focused `rioterm` and `rio-backend` tests; WGPU build; `python3 tools/yazelix_conformance.py verify`; `git diff --check`; direct Sixel screenshot; direct Kitty Unicode-placeholder screenshot; Yazi Kitty preview through Zellij/Yazelix; Helix-in-stack screenshot evidence |
 | Stack validation commands | Records reproducible focused stack checks | `nix develop -c cargo test -p rioterm --features 'rio-window/x11 rio-window/wayland rio-window/wayland-dlopen' graphics_namespace -- --nocapture`; `nix develop -c cargo test -p rioterm --features 'rio-window/x11 rio-window/wayland rio-window/wayland-dlopen' yazelix_mode -- --nocapture`; `nix develop -c cargo test -p rio-backend --features 'rio-window/x11 rio-window/wayland rio-window/wayland-dlopen' kitty_virtual -- --nocapture`; `nix develop -c cargo build -p rioterm --features wgpu`; `python3 tools/yazelix_conformance.py verify`; `git diff --check` |
 
-## Core Graphics And Terminal Fixtures
+## Fork-Owned Core Graphics Delta
 
 | Surface | Implemented or documented behavior | Verification evidence |
 | --- | --- | --- |
-| Kitty graphics | Validates the renderer path for a 1x1 RGBA Kitty image transmit/place fixture and stack image previews | `python3 tools/yazelix_conformance.py verify`; direct Kitty Unicode-placeholder screenshot; Yazi Kitty preview through Zellij/Yazelix |
 | Sixel | Bridges atlas Sixel graphics into the renderer image-overlay path | Focused stack tests; `python3 tools/yazelix_conformance.py verify`; direct Sixel screenshot |
 | iTerm2 OSC 1337 images | Bridges atlas iTerm image graphics into the renderer image-overlay path | Focused stack tests; WGPU build; `python3 tools/yazelix_conformance.py verify`; stack screenshot evidence |
-| OSC 8 hyperlinks | Keeps OSC 8 in the conformance fixture set | `python3 tools/yazelix_conformance.py verify` fixture `osc8_hyperlink` |
-| Synchronized output | Keeps DECSET 2026 in the conformance fixture set | `python3 tools/yazelix_conformance.py verify` fixture `synchronized_output` |
-| XTVERSION and XTGETTCAP | Keeps terminal identity/capability replies in the conformance fixture set | `python3 tools/yazelix_conformance.py verify` fixtures `xtversion_query` and `xtgettcap_rgb` |
+
+## Validated Pre-Existing Rio And Terminal Surfaces
+
+These rows are coverage evidence, not fork-owned feature claims. They stay in
+the ledger because Yazelix depends on them and because the conformance harness
+should catch regressions when fork work touches nearby parser or renderer code.
+
+| Surface | Validated behavior | Verification evidence |
+| --- | --- | --- |
+| Kitty graphics base path | Validates the existing renderer path for a 1x1 RGBA Kitty image transmit/place fixture and stack image previews; fork-owned Kitty graphics fixes are recorded under stack graphics validation above | `python3 tools/yazelix_conformance.py verify`; direct Kitty Unicode-placeholder screenshot; Yazi Kitty preview through Zellij/Yazelix |
+| OSC 8 hyperlinks | Keeps the existing hyperlink parser/renderer behavior in the conformance fixture set | `python3 tools/yazelix_conformance.py verify` fixture `osc8_hyperlink` |
+| Synchronized output | Keeps existing DECSET 2026 behavior in the conformance fixture set | `python3 tools/yazelix_conformance.py verify` fixture `synchronized_output` |
+| XTVERSION and XTGETTCAP | Keeps existing terminal identity/capability replies in the conformance fixture set | `python3 tools/yazelix_conformance.py verify` fixtures `xtversion_query` and `xtgettcap_rgb` |
 
 ## Shell And Prompt Protocols
 
