@@ -6,6 +6,7 @@ evidence live in
 [`docs/yazelix/fork_feature_verification.md`](docs/yazelix/fork_feature_verification.md).
 Build-speed guidance lives in
 [`docs/yazelix/build_speed_workflow.md`](docs/yazelix/build_speed_workflow.md).
+Cachix setup lives in [`docs/yazelix/cachix.md`](docs/yazelix/cachix.md).
 For visual source edits, run the cargo-built terminal with the Yazelix config
 shape through `tools/yazelix_terminal_local.sh` before paying for a Nix package
 or Home Manager rebuild.

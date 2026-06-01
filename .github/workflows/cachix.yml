@@ -1,0 +1,43 @@
+name: Cachix
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '**/*.nix'
+      - '**/*.rs'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - 'flake.lock'
+      - '.github/workflows/cachix.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish-x86_64-linux:
+    name: Publish x86_64-linux packages
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/flake-checker-action@main
+      - uses: cachix/cachix-action@v17
+        with:
+          name: luccahuguet-yazelix-terminal
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
+          pushFilter: '(-source$|\.drv$)'
+      - name: Build terminal packages
+        run: |
+          nix build \
+            .#packages.x86_64-linux.yazelix-terminal \
+            .#packages.x86_64-linux.yazelix-terminal-fast \
+            --max-jobs auto \
+            --build-max-jobs auto \
+            --print-build-logs
