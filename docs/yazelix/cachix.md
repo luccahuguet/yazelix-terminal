@@ -9,6 +9,7 @@ The cache is intended to be public and project-scoped:
 
 - Cache name: `luccahuguet-yazelix-terminal`
 - Substituter: `https://luccahuguet-yazelix-terminal.cachix.org`
+- Public key: `luccahuguet-yazelix-terminal.cachix.org-1:NwYldFPOxjg4cjLoU9jZW9rrd/Jj60PzksvRXhDy574=`
 - Signing: Cachix-managed signing key
 - Writers: GitHub Actions on this repository's `main` branch and manual
   `workflow_dispatch` runs
@@ -39,6 +40,12 @@ Install it as a GitHub Actions secret:
 
 ```sh
 gh secret set CACHIX_AUTH_TOKEN --repo luccahuguet/yazelix-terminal
+```
+
+Verify GitHub has the secret name:
+
+```sh
+gh secret list --repo luccahuguet/yazelix-terminal
 ```
 
 The workflow `.github/workflows/cachix.yml` publishes these x86_64-linux
@@ -75,12 +82,10 @@ that Cachix prints for this cache. The shape is:
     "https://luccahuguet-yazelix-terminal.cachix.org?priority=30"
   ];
   nix.settings.extra-trusted-public-keys = [
-    "luccahuguet-yazelix-terminal.cachix.org-1:<public-key>"
+    "luccahuguet-yazelix-terminal.cachix.org-1:NwYldFPOxjg4cjLoU9jZW9rrd/Jj60PzksvRXhDy574="
   ];
 }
 ```
-
-Use the exact public key from Cachix after the cache is created.
 
 If the cache is private, users also need a read token:
 
@@ -97,7 +102,7 @@ machine that has the cache configured:
 ```sh
 nix build .#yazelix-terminal \
   --option substituters 'https://cache.nixos.org https://luccahuguet-yazelix-terminal.cachix.org' \
-  --option trusted-public-keys 'cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= luccahuguet-yazelix-terminal.cachix.org-1:<public-key>' \
+  --option trusted-public-keys 'cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= luccahuguet-yazelix-terminal.cachix.org-1:NwYldFPOxjg4cjLoU9jZW9rrd/Jj60PzksvRXhDy574=' \
   --print-build-logs
 ```
 
