@@ -12,7 +12,11 @@ const SHORT_ANIMATION_LENGTH: f32 = 0.04;
 /// Cursor jumps above this cell distance are treated as redraw warps.
 /// Full-screen TUIs often move the terminal cursor between distant paint
 /// regions while scrolling; animating those jumps draws huge trail quads.
-const WARP_MOVE_MAX_CELLS: f32 = 8.0;
+const WARP_MOVE_MAX_CELLS: f32 = 32.0;
+
+/// One-row vertical editor/file-manager movement may include a large horizontal
+/// column correction on short or empty lines. Keep that visual warp.
+const ONE_ROW_WARP_MAX_VERTICAL_CELLS: f32 = 1.001;
 
 /// Nearby terminal-cursor movement should stay visually responsive. This
 /// includes editor/file-manager vertical `j`/`k` movement, not only typing.
@@ -471,6 +475,10 @@ fn cursor_jump_should_snap(
         0.0
     };
 
+    if jump_y <= ONE_ROW_WARP_MAX_VERTICAL_CELLS {
+        return false;
+    }
+
     cursor_jump_distance_cells(jump_x, jump_y) > WARP_MOVE_MAX_CELLS
 }
 
@@ -506,19 +514,37 @@ mod tests {
         let mut cursor = TrailCursor::new();
         seed_cursor(&mut cursor, cell_width, cell_height);
 
-        cursor.set_destination(0.0, cell_height * 20.0, cell_width, cell_height);
+        cursor.set_destination(0.0, cell_height * 40.0, cell_width, cell_height);
         cursor.animate(cell_width, cell_height);
 
         assert!(!cursor.is_animating());
         assert_eq!(cursor.corners[0].x, 0.0);
-        assert_eq!(cursor.corners[0].y, cell_height * 20.0);
+        assert_eq!(cursor.corners[0].y, cell_height * 40.0);
         assert_eq!(cursor.corners[2].x, cell_width);
-        assert_eq!(cursor.corners[2].y, cell_height * 21.0);
+        assert_eq!(cursor.corners[2].y, cell_height * 41.0);
+    }
+
+    #[test]
+    fn one_row_long_column_warp_keeps_trail_animation() {
+        let cell_width = 10.0;
+        let cell_height = 20.0;
+        let mut cursor = TrailCursor::new();
+        seed_cursor(&mut cursor, cell_width, cell_height);
+
+        cursor.set_destination(cell_width * 40.0, cell_height, cell_width, cell_height);
+        cursor.animate(cell_width, cell_height);
+
+        assert!(cursor.is_animating());
+        assert!(cursor
+            .corners
+            .iter()
+            .any(|corner| corner.anim_length == ANIMATION_LENGTH));
     }
 
     #[test]
     fn diagonal_redraw_jump_exceeds_snap_threshold() {
-        assert!(cursor_jump_should_snap(5.0, 10.0, 205.0, 410.0, 10.0, 20.0));
+        assert!(cursor_jump_should_snap(5.0, 10.0, 405.0, 810.0, 10.0, 20.0));
         assert!(!cursor_jump_should_snap(5.0, 10.0, 5.0, 30.0, 10.0, 20.0));
+        assert!(!cursor_jump_should_snap(5.0, 10.0, 405.0, 30.0, 10.0, 20.0));
     }
 }
