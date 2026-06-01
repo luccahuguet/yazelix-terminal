@@ -172,6 +172,13 @@ For packaged `yazelix-terminal`, the runtime no-effects equivalent is
 font, and window settings while removing custom shaders and trail cursor
 effects, so it is the first comparison to run before blaming event scheduling.
 
+Platform coverage caveat: the Helix viewport latency work touches shared
+PTY/render-lock code, so Windows and macOS inherit the same scheduling behavior.
+The current evidence is Linux-local, collected on a COSMIC Wayland session.
+Before claiming that the shared changes do not regress Windows or macOS, native
+smoke tests should cover shell startup, heavy scroll output, repeated
+resize/viewport changes, and the `helix-viewport` workload on those platforms.
+
 For Ghostty or another terminal binary, pass terminal arguments before the
 child `-e` command with repeated `--terminal-arg=...` values:
 
@@ -248,5 +255,7 @@ The next useful benchmark work should add:
 - longer shader stability runs after the throttled game loop fix
 - real Helix key-injection captures to complement the deterministic
   `helix-jk` and `helix-viewport` proxies
+- native Windows and macOS smoke runs for shared PTY/render-lock changes before
+  making no-regression claims on those platforms
 
 Tracked as Bead `yzt-7p3.41`.
