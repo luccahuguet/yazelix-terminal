@@ -1,7 +1,11 @@
 confirm-before-quit = false
 
+[window]
+decorations = "Disabled"
+
 [fonts]
 family = "cascadiacode"
+size = 18.0
 additional-dirs = [
   "@yazelix_terminal_font_dir@",
   "@yazelix_terminal_emoji_font_dir@",

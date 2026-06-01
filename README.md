@@ -33,9 +33,10 @@ The package installs:
 
 The desktop wrapper sets `--app-id yazelix-terminal`, searches for available
 Nix graphics wrappers, and uses Rio's supported `RIO_CONFIG_HOME` config
-directory contract. Its packaged config disables confirm-before-quit and uses
-the default event renderer strategy. `YAZELIX_TERMINAL_RENDER_STRATEGY=game`
-is kept as an explicit diagnostic override
+directory contract. Its packaged config disables confirm-before-quit, disables
+native window decorations, sets the terminal font size to `18.0`, and uses the
+default event renderer strategy. `YAZELIX_TERMINAL_RENDER_STRATEGY=game` is kept
+as an explicit diagnostic override
 
 Wrapper override knobs:
 
