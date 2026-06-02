@@ -189,7 +189,6 @@ pub struct Screen<'screen> {
     pub resize_state: Option<crate::layout::ResizeState>,
     last_render_presented: bool,
     last_render_needs_redraw: bool,
-    last_render_deferred_due_terminal_lock: bool,
     last_render_metrics: crate::frame_metrics::RenderPhaseMetrics,
     /// Per-panel `GridRenderer`, keyed by `route_id`. Lazily created
     /// on first render of each panel so construction (which compiles
@@ -445,7 +444,6 @@ impl Screen<'_> {
             resize_state: None,
             last_render_presented: false,
             last_render_needs_redraw: false,
-            last_render_deferred_due_terminal_lock: false,
             last_render_metrics: crate::frame_metrics::RenderPhaseMetrics::default(),
             grids: rustc_hash::FxHashMap::default(),
             grid_rasterizer: crate::grid_emit::GridGlyphRasterizer::new(),
@@ -3482,7 +3480,6 @@ impl Screen<'_> {
         self.sugarloaf.render();
         self.last_render_presented = true;
         self.last_render_needs_redraw = false;
-        self.last_render_deferred_due_terminal_lock = false;
         self.last_render_metrics = crate::frame_metrics::RenderPhaseMetrics::default();
     }
 
@@ -3494,11 +3491,6 @@ impl Screen<'_> {
     #[inline]
     pub(crate) fn last_render_needs_redraw(&self) -> bool {
         self.last_render_needs_redraw
-    }
-
-    #[inline]
-    pub(crate) fn last_render_deferred_due_terminal_lock(&self) -> bool {
-        self.last_render_deferred_due_terminal_lock
     }
 
     #[inline]
@@ -3630,7 +3622,6 @@ impl Screen<'_> {
         self.last_render_metrics = crate::frame_metrics::RenderPhaseMetrics::default();
         self.last_render_presented = false;
         self.last_render_needs_redraw = false;
-        self.last_render_deferred_due_terminal_lock = false;
 
         let is_search_active = self.search_active();
         if is_search_active {
@@ -3675,8 +3666,6 @@ impl Screen<'_> {
         );
         self.last_render_metrics.renderer_run_duration +=
             renderer_run_started_at.elapsed();
-        self.last_render_deferred_due_terminal_lock =
-            self.last_render_metrics.terminal_lock_busy_count > 0;
         let had_renderer_animation = self.renderer.needs_redraw();
         #[cfg(feature = "wgpu")]
         let had_shader_animation = self.sugarloaf.ghostty_shader_needs_redraw();

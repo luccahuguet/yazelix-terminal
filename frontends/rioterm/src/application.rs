@@ -2135,27 +2135,9 @@ impl ApplicationHandler<EventPayload> for Application<'_> {
                             );
                         }
                     }
-                    let defer_dirty_retry = dirty_after
-                        && route.window.screen.last_render_deferred_due_terminal_lock();
-                    if defer_dirty_retry {
-                        let route_id = route.window.screen.ctx().current_route();
-                        let timer_id = TimerId::new(Topic::Render, route_id);
-                        let event = EventPayload::new(
-                            RioEventType::Rio(RioEvent::Render),
-                            window_id,
-                        );
-                        if !self.scheduler.scheduled(timer_id) {
-                            self.scheduler.schedule(
-                                event,
-                                route.window.vblank_interval,
-                                false,
-                                timer_id,
-                            );
-                        }
-                    }
                     if route.path == RoutePath::Welcome
                         || route.path == RoutePath::ConfirmQuit
-                        || (dirty_after && !defer_dirty_retry)
+                        || dirty_after
                     {
                         route.request_redraw();
                     }

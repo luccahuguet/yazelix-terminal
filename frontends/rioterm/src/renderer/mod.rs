@@ -29,7 +29,6 @@ use std::time::{Duration, Instant};
 const VISUAL_BELL_DURATION: Duration = Duration::from_millis(180);
 const VISUAL_BELL_MAX_ALPHA: f32 = 0.28;
 const VISUAL_BELL_ORDER: u8 = 10;
-const TERMINAL_RENDER_LOCK_TIMEOUT: Duration = Duration::from_millis(8);
 
 /// The window-bg clear alpha that flows into sugarloaf's
 /// `set_background_color`. Stored on the renderer and re-applied on
@@ -421,21 +420,7 @@ impl Renderer {
             }
 
             let lock_started_at = Instant::now();
-            let mut terminal = if force_full_damage {
-                context.terminal.lock()
-            } else {
-                match context
-                    .terminal
-                    .try_lock_unfair_for(TERMINAL_RENDER_LOCK_TIMEOUT)
-                {
-                    Some(terminal) => terminal,
-                    None => {
-                        metrics.terminal_lock_wait_duration += lock_started_at.elapsed();
-                        metrics.terminal_lock_busy_count += 1;
-                        continue;
-                    }
-                }
-            };
+            let mut terminal = context.terminal.lock();
             metrics.terminal_lock_wait_duration += lock_started_at.elapsed();
             any_panel_dirty = true;
 
