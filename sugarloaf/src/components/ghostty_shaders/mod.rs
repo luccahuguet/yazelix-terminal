@@ -200,6 +200,7 @@ pub struct GhosttyShaderBrush {
     resources: Option<GhosttyShaderResources>,
     uniforms: GhosttyShaderUniforms,
     frame_state: GhosttyShaderFrameState,
+    frame_state_initialized: bool,
     first_frame: Option<Instant>,
     last_frame: Option<Instant>,
     animation_until: Option<Instant>,
@@ -249,10 +250,15 @@ impl GhosttyShaderBrush {
 
     #[inline]
     pub fn update_frame_state(&mut self, state: GhosttyShaderFrameState) {
-        if self.frame_state != state {
+        if shader_animation_inputs_changed(
+            self.frame_state_initialized,
+            &self.frame_state,
+            &state,
+        ) {
             self.animation_until = Some(Instant::now() + SHADER_ANIMATION_WINDOW);
         }
         self.frame_state = state;
+        self.frame_state_initialized = true;
     }
 
     #[inline]
@@ -452,6 +458,40 @@ fn cursor_transition_should_snap(previous: [f32; 4], current: [f32; 4]) -> bool 
     }
 
     jump_x.hypot(jump_y) > CURSOR_TRAIL_WARP_MAX_CELLS
+}
+
+fn shader_animation_inputs_changed(
+    initialized: bool,
+    previous: &GhosttyShaderFrameState,
+    current: &GhosttyShaderFrameState,
+) -> bool {
+    if !initialized {
+        return current.cursor.is_some() || !current.extra_cursors.is_empty();
+    }
+
+    cursor_pair_changed(previous.cursor, current.cursor)
+        || extra_cursor_pair_changed(&previous.extra_cursors, &current.extra_cursors)
+}
+
+fn cursor_pair_changed(
+    previous: Option<GhosttyShaderCursor>,
+    current: Option<GhosttyShaderCursor>,
+) -> bool {
+    match (previous, current) {
+        (Some(previous), Some(current)) => previous != current,
+        _ => false,
+    }
+}
+
+fn extra_cursor_pair_changed(
+    previous: &[GhosttyShaderCursor],
+    current: &[GhosttyShaderCursor],
+) -> bool {
+    if previous.is_empty() || current.is_empty() {
+        return false;
+    }
+
+    previous != current
 }
 
 fn build_shadertoy_glsl(source: &str) -> String {
@@ -770,6 +810,81 @@ mod tests {
         brush.update_frame_state(state);
 
         assert!(brush.needs_redraw());
+    }
+
+    #[test]
+    fn cursor_move_requests_redraw_window_after_initial_frame() {
+        let mut brush = GhosttyShaderBrush::default();
+        let first = GhosttyShaderCursor {
+            rect: [10.0, 20.0, 8.0, 16.0],
+            color: [1.0, 0.0, 1.0, 1.0],
+            style: GhosttyCursorStyle::Block,
+        };
+        let second = GhosttyShaderCursor {
+            rect: [18.0, 20.0, 8.0, 16.0],
+            ..first
+        };
+        let mut state = GhosttyShaderFrameState {
+            cursor: Some(first),
+            cursor_visible: true,
+            ..GhosttyShaderFrameState::default()
+        };
+        brush.update_frame_state(state.clone());
+        brush.animation_until = None;
+
+        state.cursor = Some(second);
+        brush.update_frame_state(state);
+
+        assert!(brush.needs_redraw());
+    }
+
+    #[test]
+    fn focus_change_does_not_request_redraw_window() {
+        let mut brush = GhosttyShaderBrush::default();
+        let cursor = GhosttyShaderCursor {
+            rect: [10.0, 20.0, 8.0, 16.0],
+            color: [1.0, 0.0, 1.0, 1.0],
+            style: GhosttyCursorStyle::Block,
+        };
+        let mut state = GhosttyShaderFrameState {
+            cursor: Some(cursor),
+            cursor_visible: true,
+            ..GhosttyShaderFrameState::default()
+        };
+        brush.update_frame_state(state.clone());
+        brush.animation_until = None;
+
+        state.focus = true;
+        brush.update_frame_state(state);
+
+        assert!(!brush.needs_redraw());
+    }
+
+    #[test]
+    fn cursor_blink_visibility_does_not_request_redraw_window() {
+        let mut brush = GhosttyShaderBrush::default();
+        let cursor = GhosttyShaderCursor {
+            rect: [10.0, 20.0, 8.0, 16.0],
+            color: [1.0, 0.0, 1.0, 1.0],
+            style: GhosttyCursorStyle::Block,
+        };
+        let mut state = GhosttyShaderFrameState {
+            cursor: Some(cursor),
+            cursor_visible: true,
+            ..GhosttyShaderFrameState::default()
+        };
+        brush.update_frame_state(state.clone());
+        brush.animation_until = None;
+
+        state.cursor = None;
+        state.cursor_visible = false;
+        brush.update_frame_state(state.clone());
+        assert!(!brush.needs_redraw());
+
+        state.cursor = Some(cursor);
+        state.cursor_visible = true;
+        brush.update_frame_state(state);
+        assert!(!brush.needs_redraw());
     }
 
     #[test]

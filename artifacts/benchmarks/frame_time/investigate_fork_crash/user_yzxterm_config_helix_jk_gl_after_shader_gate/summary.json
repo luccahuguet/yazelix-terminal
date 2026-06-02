@@ -1,0 +1,192 @@
+{
+  "command": {
+    "config_path": null,
+    "config_template": "host",
+    "frame_log": "artifacts/benchmarks/frame_time/investigate_fork_crash/user_yzxterm_config_helix_jk_gl_after_shader_gate/frame_log.jsonl",
+    "gpu_samples": null,
+    "proc_samples": "artifacts/benchmarks/frame_time/investigate_fork_crash/user_yzxterm_config_helix_jk_gl_after_shader_gate/proc_samples.csv",
+    "returncode": 0,
+    "terminal_argv": [
+      "target/debug/rio",
+      "-e",
+      "bash",
+      "--noprofile",
+      "--norc",
+      "-c",
+      "\npython3 - <<'PY'\nimport shutil\nimport sys\nimport time\n\nmoves = max(1, 800)\nhold_seconds = max(0.0, 0.5)\nterminal_size = shutil.get_terminal_size((80, 24))\nrows = max(12, min(terminal_size.lines - 2, 48))\nrow = 0\ndirection = 1\n\nsys.stdout.write(\"\\x1b[?25h\\x1b[2J\\x1b[H\")\nfor index in range(rows):\n    sys.stdout.write(\n        f\"{index + 1:03d} helix cursor churn line {index + 1:03d} \"\n        \"abcdefghijklmnopqrstuvwxyz 0123456789\\r\\n\"\n    )\nsys.stdout.write(\"\\x1b[H\")\nsys.stdout.flush()\n\nfor index in range(moves):\n    if row >= rows - 2:\n        direction = -1\n    elif row <= 0:\n        direction = 1\n    row += direction\n    sys.stdout.write(\"\\x1b[B\" if direction > 0 else \"\\x1b[A\")\n    if index % 8 == 7:\n        sys.stdout.flush()\n        time.sleep(0.002)\n\nsys.stdout.flush()\ntime.sleep(hold_seconds)\nPY\n"
+    ],
+    "timed_out": false,
+    "wall_time_seconds": 1.059362303
+  },
+  "dirty_row_rebuild_count": {
+    "count": 33,
+    "max": 50.0,
+    "mean": 1.5151515151515151,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.0,
+    "p99": 33.999999999999986,
+    "total": 50.0
+  },
+  "first_presented_frame_ms": 218.019503,
+  "first_redraw_ms": 218.019503,
+  "frame_count": 33,
+  "full_row_rebuild_count": {
+    "count": 33,
+    "max": 50.0,
+    "mean": 2.1818181818181817,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 8.799999999999969,
+    "p99": 41.03999999999999,
+    "total": 72.0
+  },
+  "grid_emit_duration_ms": {
+    "count": 33,
+    "max": 15.633335,
+    "mean": 0.6775538484848486,
+    "median": 0.05663,
+    "min": 0.020023,
+    "p95": 2.1648605999999937,
+    "p99": 12.189673239999998
+  },
+  "panel_collect_duration_ms": {
+    "count": 33,
+    "max": 0.024728,
+    "mean": 0.01665739393939394,
+    "median": 0.017707,
+    "min": 0.004304,
+    "p95": 0.024473799999999997,
+    "p99": 0.02469696
+  },
+  "panel_count": {
+    "count": 33,
+    "max": 1.0,
+    "mean": 1.0,
+    "median": 1.0,
+    "min": 1.0,
+    "p95": 1.0,
+    "p99": 1.0,
+    "total": 33.0
+  },
+  "presented_delta_ms": {
+    "count": 32,
+    "max": 89.725096,
+    "mean": 21.73736296875,
+    "median": 19.32743,
+    "min": 6.541602,
+    "p95": 46.185205899999964,
+    "p99": 85.28255575000001
+  },
+  "presented_frame_count": 33,
+  "process": {
+    "cpu_percent": 39.66951485849447,
+    "cpu_seconds": 0.4,
+    "max_rss_kb": 165088,
+    "sample_count": 21,
+    "wall_seconds": 1.00833096
+  },
+  "redraw_delta_ms": {
+    "count": 32,
+    "max": 89.725096,
+    "mean": 21.73736296875,
+    "median": 19.32743,
+    "min": 6.541602,
+    "p95": 46.185205899999964,
+    "p99": 85.28255575000001
+  },
+  "render_duration_ms": {
+    "count": 33,
+    "max": 29.764972,
+    "mean": 3.7360672424242423,
+    "median": 2.365595,
+    "min": 0.795523,
+    "p95": 12.482482599999983,
+    "p99": 26.394219999999997
+  },
+  "renderer_run_duration_ms": {
+    "count": 33,
+    "max": 0.058515,
+    "mean": 0.025255787878787878,
+    "median": 0.023649,
+    "min": 0.007672,
+    "p95": 0.0414302,
+    "p99": 0.053404599999999997
+  },
+  "row_rebuild_count": {
+    "count": 33,
+    "max": 50.0,
+    "mean": 3.696969696969697,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 33.19999999999996,
+    "p99": 50.0,
+    "total": 122.0
+  },
+  "schema": 1,
+  "snapshot_visible_duration_ms": {
+    "count": 33,
+    "max": 0.019048,
+    "mean": 0.0021886666666666665,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.013139399999999996,
+    "p99": 0.017637439999999997
+  },
+  "sugarloaf_render_duration_ms": {
+    "count": 33,
+    "max": 11.762474,
+    "mean": 2.3692209393939394,
+    "median": 2.125028,
+    "min": 0.717915,
+    "p95": 4.504142399999997,
+    "p99": 9.641064399999998
+  },
+  "target_vblank_ms": {
+    "count": 33,
+    "max": 16.666,
+    "mean": 16.666,
+    "median": 16.666,
+    "min": 16.666,
+    "p95": 16.666,
+    "p99": 16.666
+  },
+  "terminal_lock_busy_count": {
+    "count": 33,
+    "max": 0.0,
+    "mean": 0.0,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.0,
+    "p99": 0.0,
+    "total": 0.0
+  },
+  "terminal_lock_wait_duration_ms": {
+    "count": 33,
+    "max": 0.001362,
+    "mean": 0.00017345454545454546,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.0011186,
+    "p99": 0.00129064
+  },
+  "terminal_snapshot_duration_ms": {
+    "count": 33,
+    "max": 0.030182,
+    "mean": 0.0046636969696969705,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.024039399999999992,
+    "p99": 0.02932824
+  },
+  "visible_row_count": {
+    "count": 33,
+    "max": 50.0,
+    "mean": 49.15151515151515,
+    "median": 50.0,
+    "min": 22.0,
+    "p95": 50.0,
+    "p99": 50.0,
+    "total": 1622.0
+  }
+}

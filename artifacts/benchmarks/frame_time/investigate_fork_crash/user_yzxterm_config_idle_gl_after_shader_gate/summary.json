@@ -1,0 +1,192 @@
+{
+  "command": {
+    "config_path": null,
+    "config_template": "host",
+    "frame_log": "artifacts/benchmarks/frame_time/investigate_fork_crash/user_yzxterm_config_idle_gl_after_shader_gate/frame_log.jsonl",
+    "gpu_samples": null,
+    "proc_samples": "artifacts/benchmarks/frame_time/investigate_fork_crash/user_yzxterm_config_idle_gl_after_shader_gate/proc_samples.csv",
+    "returncode": 0,
+    "terminal_argv": [
+      "target/debug/rio",
+      "-e",
+      "bash",
+      "--noprofile",
+      "--norc",
+      "-c",
+      "printf 'yazelix frame benchmark idle\\n'; sleep 3.0"
+    ],
+    "timed_out": false,
+    "wall_time_seconds": 3.333792983
+  },
+  "dirty_row_rebuild_count": {
+    "count": 37,
+    "max": 50.0,
+    "mean": 1.3513513513513513,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.0,
+    "p99": 32.00000000000003,
+    "total": 50.0
+  },
+  "first_presented_frame_ms": 193.321173,
+  "first_redraw_ms": 193.321173,
+  "frame_count": 37,
+  "full_row_rebuild_count": {
+    "count": 37,
+    "max": 50.0,
+    "mean": 1.945945945945946,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 4.399999999999906,
+    "p99": 39.920000000000016,
+    "total": 72.0
+  },
+  "grid_emit_duration_ms": {
+    "count": 37,
+    "max": 7.810116,
+    "mean": 0.28853256756756757,
+    "median": 0.059163,
+    "min": 0.028416,
+    "p95": 0.41524459999999874,
+    "p99": 5.231320440000005
+  },
+  "panel_collect_duration_ms": {
+    "count": 37,
+    "max": 0.036717,
+    "mean": 0.01830356756756757,
+    "median": 0.020073,
+    "min": 0.00404,
+    "p95": 0.025046599999999995,
+    "p99": 0.03289380000000001
+  },
+  "panel_count": {
+    "count": 37,
+    "max": 1.0,
+    "mean": 1.0,
+    "median": 1.0,
+    "min": 1.0,
+    "p95": 1.0,
+    "p99": 1.0,
+    "total": 37.0
+  },
+  "presented_delta_ms": {
+    "count": 35,
+    "max": 89.497211,
+    "mean": 22.430463514285716,
+    "median": 19.170777,
+    "min": 9.295793,
+    "p95": 37.64699979999985,
+    "p99": 84.65250101999995
+  },
+  "presented_frame_count": 36,
+  "process": {
+    "cpu_percent": 12.79421840529177,
+    "cpu_seconds": 0.42,
+    "max_rss_kb": 165368,
+    "sample_count": 66,
+    "wall_seconds": 3.282732768
+  },
+  "redraw_delta_ms": {
+    "count": 36,
+    "max": 89.497211,
+    "mean": 22.281672222222223,
+    "median": 19.163533,
+    "min": 9.295793,
+    "p95": 34.961209499999995,
+    "p99": 84.51000954999998
+  },
+  "render_duration_ms": {
+    "count": 37,
+    "max": 31.070876,
+    "mean": 3.0698655675675677,
+    "median": 2.156598,
+    "min": 0.141984,
+    "p95": 5.687375599999974,
+    "p99": 23.65468952000001
+  },
+  "renderer_run_duration_ms": {
+    "count": 37,
+    "max": 0.037966,
+    "mean": 0.02260254054054054,
+    "median": 0.023043,
+    "min": 0.011305,
+    "p95": 0.029906399999999982,
+    "p99": 0.036434560000000005
+  },
+  "row_rebuild_count": {
+    "count": 37,
+    "max": 50.0,
+    "mean": 3.2972972972972974,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 27.59999999999988,
+    "p99": 50.0,
+    "total": 122.0
+  },
+  "schema": 1,
+  "snapshot_visible_duration_ms": {
+    "count": 37,
+    "max": 0.017097,
+    "mean": 0.0009764324324324325,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.00820899999999998,
+    "p99": 0.015151560000000005
+  },
+  "sugarloaf_render_duration_ms": {
+    "count": 37,
+    "max": 11.128531,
+    "mean": 2.104231054054054,
+    "median": 1.903977,
+    "min": 0.001776,
+    "p95": 3.797009799999998,
+    "p99": 8.651655400000005
+  },
+  "target_vblank_ms": {
+    "count": 37,
+    "max": 16.666,
+    "mean": 16.666,
+    "median": 16.666,
+    "min": 16.666,
+    "p95": 16.666,
+    "p99": 16.666
+  },
+  "terminal_lock_busy_count": {
+    "count": 37,
+    "max": 0.0,
+    "mean": 0.0,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.0,
+    "p99": 0.0,
+    "total": 0.0
+  },
+  "terminal_lock_wait_duration_ms": {
+    "count": 37,
+    "max": 0.00085,
+    "mean": 4.189189189189189e-05,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.0003469999999999999,
+    "p99": 0.0006718000000000002
+  },
+  "terminal_snapshot_duration_ms": {
+    "count": 37,
+    "max": 0.025871,
+    "mean": 0.0017207837837837838,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.018558799999999997,
+    "p99": 0.023565200000000005
+  },
+  "visible_row_count": {
+    "count": 37,
+    "max": 50.0,
+    "mean": 49.24324324324324,
+    "median": 50.0,
+    "min": 22.0,
+    "p95": 50.0,
+    "p99": 50.0,
+    "total": 1822.0
+  }
+}

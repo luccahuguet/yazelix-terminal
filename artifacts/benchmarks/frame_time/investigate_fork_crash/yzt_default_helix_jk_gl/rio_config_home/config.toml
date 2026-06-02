@@ -1,0 +1,10 @@
+[renderer]
+backend = "Webgpu"
+custom-shader = [
+  "/home/lucca/pjs/yazelix-terminal/misc/yazelix_terminal_shaders/cursor_trail_dusk.glsl",
+  "/home/lucca/pjs/yazelix-terminal/misc/yazelix_terminal_shaders/generated_effects/sweep.glsl",
+  "/home/lucca/pjs/yazelix-terminal/misc/yazelix_terminal_shaders/generated_effects/rectangle_boom.glsl"
+]
+
+[effects]
+trail-cursor = true

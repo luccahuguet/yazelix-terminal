@@ -1,0 +1,45 @@
+{
+  "command": {
+    "config_path": "artifacts/benchmarks/frame_time/investigate_fork_crash/no_effects_helix_jk/rio_config_home/config.toml",
+    "config_template": "wgpu-no-effects",
+    "frame_log": "artifacts/benchmarks/frame_time/investigate_fork_crash/no_effects_helix_jk/frame_log.jsonl",
+    "gpu_samples": null,
+    "proc_samples": "artifacts/benchmarks/frame_time/investigate_fork_crash/no_effects_helix_jk/proc_samples.csv",
+    "returncode": -11,
+    "terminal_argv": [
+      "target/debug/rio",
+      "-e",
+      "bash",
+      "--noprofile",
+      "--norc",
+      "-c",
+      "\npython3 - <<'PY'\nimport shutil\nimport sys\nimport time\n\nmoves = max(1, 800)\nhold_seconds = max(0.0, 0.5)\nterminal_size = shutil.get_terminal_size((80, 24))\nrows = max(12, min(terminal_size.lines - 2, 48))\nrow = 0\ndirection = 1\n\nsys.stdout.write(\"\\x1b[?25h\\x1b[2J\\x1b[H\")\nfor index in range(rows):\n    sys.stdout.write(\n        f\"{index + 1:03d} helix cursor churn line {index + 1:03d} \"\n        \"abcdefghijklmnopqrstuvwxyz 0123456789\\r\\n\"\n    )\nsys.stdout.write(\"\\x1b[H\")\nsys.stdout.flush()\n\nfor index in range(moves):\n    if row >= rows - 2:\n        direction = -1\n    elif row <= 0:\n        direction = 1\n    row += direction\n    sys.stdout.write(\"\\x1b[B\" if direction > 0 else \"\\x1b[A\")\n    if index % 8 == 7:\n        sys.stdout.flush()\n        time.sleep(0.002)\n\nsys.stdout.flush()\ntime.sleep(hold_seconds)\nPY\n"
+    ],
+    "timed_out": false,
+    "wall_time_seconds": 1.518463257
+  },
+  "first_presented_frame_ms": null,
+  "first_redraw_ms": null,
+  "frame_count": 0,
+  "presented_delta_ms": {
+    "count": 0
+  },
+  "presented_frame_count": 0,
+  "process": {
+    "cpu_percent": 11.586141062077099,
+    "cpu_seconds": 0.17,
+    "max_rss_kb": 51892,
+    "sample_count": 30,
+    "wall_seconds": 1.467270242
+  },
+  "redraw_delta_ms": {
+    "count": 0
+  },
+  "render_duration_ms": {
+    "count": 0
+  },
+  "schema": 1,
+  "target_vblank_ms": {
+    "count": 0
+  }
+}

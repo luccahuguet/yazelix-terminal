@@ -1,0 +1,192 @@
+{
+  "command": {
+    "config_path": null,
+    "config_template": "host",
+    "frame_log": "artifacts/benchmarks/frame_time/investigate_fork_crash/user_yzxterm_config_helix_jk_gl/frame_log.jsonl",
+    "gpu_samples": null,
+    "proc_samples": "artifacts/benchmarks/frame_time/investigate_fork_crash/user_yzxterm_config_helix_jk_gl/proc_samples.csv",
+    "returncode": 0,
+    "terminal_argv": [
+      "target/debug/rio",
+      "-e",
+      "bash",
+      "--noprofile",
+      "--norc",
+      "-c",
+      "\npython3 - <<'PY'\nimport shutil\nimport sys\nimport time\n\nmoves = max(1, 800)\nhold_seconds = max(0.0, 0.5)\nterminal_size = shutil.get_terminal_size((80, 24))\nrows = max(12, min(terminal_size.lines - 2, 48))\nrow = 0\ndirection = 1\n\nsys.stdout.write(\"\\x1b[?25h\\x1b[2J\\x1b[H\")\nfor index in range(rows):\n    sys.stdout.write(\n        f\"{index + 1:03d} helix cursor churn line {index + 1:03d} \"\n        \"abcdefghijklmnopqrstuvwxyz 0123456789\\r\\n\"\n    )\nsys.stdout.write(\"\\x1b[H\")\nsys.stdout.flush()\n\nfor index in range(moves):\n    if row >= rows - 2:\n        direction = -1\n    elif row <= 0:\n        direction = 1\n    row += direction\n    sys.stdout.write(\"\\x1b[B\" if direction > 0 else \"\\x1b[A\")\n    if index % 8 == 7:\n        sys.stdout.flush()\n        time.sleep(0.002)\n\nsys.stdout.flush()\ntime.sleep(hold_seconds)\nPY\n"
+    ],
+    "timed_out": false,
+    "wall_time_seconds": 1.110041082
+  },
+  "dirty_row_rebuild_count": {
+    "count": 36,
+    "max": 50.0,
+    "mean": 1.3888888888888888,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.0,
+    "p99": 32.49999999999993,
+    "total": 50.0
+  },
+  "first_presented_frame_ms": 279.227787,
+  "first_redraw_ms": 279.227787,
+  "frame_count": 36,
+  "full_row_rebuild_count": {
+    "count": 36,
+    "max": 50.0,
+    "mean": 2.0,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 5.5,
+    "p99": 40.19999999999996,
+    "total": 72.0
+  },
+  "grid_emit_duration_ms": {
+    "count": 36,
+    "max": 12.34467,
+    "mean": 0.44843133333333335,
+    "median": 0.058511999999999995,
+    "min": 0.021807,
+    "p95": 0.69290875,
+    "p99": 8.593042399999984
+  },
+  "panel_collect_duration_ms": {
+    "count": 36,
+    "max": 0.028857,
+    "mean": 0.018977555555555557,
+    "median": 0.0208605,
+    "min": 0.004551,
+    "p95": 0.02846625,
+    "p99": 0.0288402
+  },
+  "panel_count": {
+    "count": 36,
+    "max": 1.0,
+    "mean": 1.0,
+    "median": 1.0,
+    "min": 1.0,
+    "p95": 1.0,
+    "p99": 1.0,
+    "total": 36.0
+  },
+  "presented_delta_ms": {
+    "count": 35,
+    "max": 73.920249,
+    "mean": 19.565801800000003,
+    "median": 19.394974,
+    "min": 3.732345,
+    "p95": 36.71431229999985,
+    "p99": 73.91991886
+  },
+  "presented_frame_count": 36,
+  "process": {
+    "cpu_percent": 45.32022703084643,
+    "cpu_seconds": 0.48,
+    "max_rss_kb": 175396,
+    "sample_count": 22,
+    "wall_seconds": 1.059129734
+  },
+  "redraw_delta_ms": {
+    "count": 35,
+    "max": 73.920249,
+    "mean": 19.565801800000003,
+    "median": 19.394974,
+    "min": 3.732345,
+    "p95": 36.71431229999985,
+    "p99": 73.91991886
+  },
+  "render_duration_ms": {
+    "count": 36,
+    "max": 36.040139,
+    "mean": 3.5888293333333334,
+    "median": 2.4286960000000004,
+    "min": 0.880495,
+    "p95": 7.0238647499999995,
+    "p99": 29.11237059999997
+  },
+  "renderer_run_duration_ms": {
+    "count": 36,
+    "max": 0.049836,
+    "mean": 0.026908472222222223,
+    "median": 0.0247665,
+    "min": 0.012827,
+    "p95": 0.040785,
+    "p99": 0.04884374999999999
+  },
+  "row_rebuild_count": {
+    "count": 36,
+    "max": 50.0,
+    "mean": 3.388888888888889,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 29.0,
+    "p99": 50.0,
+    "total": 122.0
+  },
+  "schema": 1,
+  "snapshot_visible_duration_ms": {
+    "count": 36,
+    "max": 0.027267,
+    "mean": 0.0025411388888888892,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.010072749999999998,
+    "p99": 0.023955649999999985
+  },
+  "sugarloaf_render_duration_ms": {
+    "count": 36,
+    "max": 11.941882,
+    "mean": 2.3102394722222224,
+    "median": 2.1449230000000004,
+    "min": 0.782022,
+    "p95": 3.5267175,
+    "p99": 9.021784399999987
+  },
+  "target_vblank_ms": {
+    "count": 36,
+    "max": 16.666,
+    "mean": 16.666,
+    "median": 16.666,
+    "min": 16.666,
+    "p95": 16.666,
+    "p99": 16.666
+  },
+  "terminal_lock_busy_count": {
+    "count": 36,
+    "max": 0.0,
+    "mean": 0.0,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.0,
+    "p99": 0.0,
+    "total": 0.0
+  },
+  "terminal_lock_wait_duration_ms": {
+    "count": 36,
+    "max": 0.000999,
+    "mean": 0.00014458333333333334,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.00075275,
+    "p99": 0.0009744999999999999
+  },
+  "terminal_snapshot_duration_ms": {
+    "count": 36,
+    "max": 0.037715,
+    "mean": 0.005555666666666667,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.023808999999999997,
+    "p99": 0.03365324999999998
+  },
+  "visible_row_count": {
+    "count": 36,
+    "max": 50.0,
+    "mean": 49.22222222222222,
+    "median": 50.0,
+    "min": 22.0,
+    "p95": 50.0,
+    "p99": 50.0,
+    "total": 1772.0
+  }
+}
