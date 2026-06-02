@@ -42,6 +42,10 @@ jobs:
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
           skipPush: true
           pushFilter: '(-source$|\.drv$)'
+      - name: Check Cachix write access
+        run: |
+          probe_path="$(nix eval --raw --expr 'builtins.toFile "yazelix-terminal-cachix-write-probe" "ok\n"')"
+          cachix push luccahuguet-yazelix-terminal "$probe_path"
       - name: Build terminal packages
         run: |
           nix build \
