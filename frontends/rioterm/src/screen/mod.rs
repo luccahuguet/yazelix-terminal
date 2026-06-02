@@ -4578,17 +4578,10 @@ impl Screen<'_> {
         }
         self.last_render_metrics.sugarloaf_render_duration += sugarloaf_render_duration;
 
-        // Mark as dirty if we need continuous rendering (e.g.,
-        // indeterminate progress bar, trail cursor animation). UI-only
-        // — terminal cells didn't change, but we want the next vsync
-        // to fire a render so overlays/animations tick forward.
-        if self.last_render_needs_redraw {
-            self.context_manager
-                .current_mut()
-                .renderable_content
-                .pending_update
-                .set_dirty();
-        }
+        // Animation-only frames are paced by `Application` through
+        // `last_render_needs_redraw`. Do not mark terminal content dirty here:
+        // doing so turns shader/trail/progress animation into an immediate
+        // dirty-after redraw loop in event mode.
 
         // In case the configuration of blinking cursor is enabled
         // and the terminal also have instructions of blinking enabled
