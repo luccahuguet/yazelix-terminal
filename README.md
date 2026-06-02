@@ -35,6 +35,7 @@ The package installs:
 - `share/applications/yazelix-terminal.desktop`
 - `share/yazelix-terminal/config.toml`
 - `share/yazelix-terminal/baseline/config.toml`
+- `share/yazelix-terminal/profiles/shaders/config.toml`
 
 The desktop wrapper sets `--app-id yazelix-terminal`, searches for available
 Nix graphics wrappers, and maps Yazelix-owned config directories into Rio's
@@ -45,19 +46,22 @@ do not inherit Yazelix Terminal's private `RIO_CONFIG_HOME` or package loader
 paths, so plain host `rio` invocations keep using the user's host Rio defaults.
 The packaged config disables confirm-before-quit, disables native window
 decorations, sets the terminal font size to `18.0`, and uses the default event
-renderer strategy with WebGPU, packaged cursor shaders, and trail cursor
-effects. `YAZELIX_TERMINAL_PROFILE=baseline` selects the same packaged font,
-window, and WebGPU baseline without custom shaders or trail cursor effects for
-performance comparisons. `YAZELIX_TERMINAL_RENDER_STRATEGY=game` is kept as an
-explicit diagnostic override and composes with either profile.
+renderer strategy with WebGPU and Rio's native trail cursor effect.
+`YAZELIX_TERMINAL_PROFILE=baseline` selects the same packaged font, window, and
+WebGPU baseline without custom shaders or trail cursor effects for performance
+comparisons. `YAZELIX_TERMINAL_PROFILE=shaders` selects the packaged
+Ghostty-compatible cursor shader stack for compatibility and visual diagnostics.
+`YAZELIX_TERMINAL_RENDER_STRATEGY=game` is kept as an explicit diagnostic
+override and composes with each profile.
 
 Wrapper override knobs:
 
 | Variable | Behavior |
 | --- | --- |
 | `YAZELIX_TERMINAL_CONFIG` | Uses a custom Rio config directory; must contain readable `config.toml` |
-| `YAZELIX_TERMINAL_PROFILE=full` | Uses the packaged shader/trail defaults |
+| `YAZELIX_TERMINAL_PROFILE=full` | Uses the packaged WebGPU + Rio trail defaults |
 | `YAZELIX_TERMINAL_PROFILE=baseline` | Uses the packaged no-effects baseline config |
+| `YAZELIX_TERMINAL_PROFILE=shaders` | Uses the opt-in Ghostty-compatible shader profile |
 | `YAZELIX_TERMINAL_EFFECTS=none` | Alias for the baseline no-effects profile |
 | `YAZELIX_TERMINAL_RENDER_STRATEGY=events` | Uses the packaged config with Rio's default event renderer strategy |
 | `YAZELIX_TERMINAL_RENDER_STRATEGY=game` | Creates a runtime copy of the packaged config with `strategy = "game"` for diagnostics |
@@ -101,6 +105,9 @@ Focused graphics checks:
 nix develop -c cargo test -p rio-backend --features 'rio-window/x11 rio-window/wayland rio-window/wayland-dlopen' kitty_virtual -- --nocapture
 nix develop -c cargo test -p sugarloaf --features 'rio-window/x11 rio-window/wayland rio-window/wayland-dlopen' image_shaders_use_origin_size_source_rect -- --nocapture
 ```
+
+Cursor animation architecture is documented in
+[`docs/yazelix/cursor_animation_architecture.md`](docs/yazelix/cursor_animation_architecture.md).
 
 The upstream Rio README follows below.
 

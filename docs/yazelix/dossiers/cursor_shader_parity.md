@@ -219,3 +219,21 @@ after the user shader body. WGPU/Naga accepts simple forward declarations, but
 the generated Yazelix shaders exposed validator failures when `main()` appeared
 before the full user function graph. Appending the wrapper preserves Ghostty's
 `mainImage` authoring surface while satisfying WGPU's stricter GLSL path.
+
+## Cursor Animation Ownership Update
+
+Dogfooding on 2026-06-02 first suggested the focus-regain lag and fast catch-up
+rendering bug improved when the generated `yzxterm` config stopped loading
+`custom-shader` while keeping Rio `trail-cursor = true`. The bug later
+reproduced without custom shaders, so this is no longer root-cause evidence.
+
+The architecture policy is therefore:
+
+- Rio `TrailCursor` owns default cursor motion.
+- Ghostty-compatible cursor shaders remain supported for parity work through an
+  explicit shader profile.
+- Future shader effects should build on the already-rendered Rio trail in
+  `iChannel0`, or consume a Yazelix extension exposing Rio trail state, instead
+  of independently computing another cursor trail in the default profile.
+- The remaining focus catch-up bug should be investigated separately from this
+  profile/default architecture cleanup.

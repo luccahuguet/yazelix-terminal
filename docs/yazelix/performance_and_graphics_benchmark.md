@@ -142,6 +142,7 @@ python3 tools/yazelix_benchmark.py frame-run --workload sixel
 python3 tools/yazelix_benchmark.py frame-run --config-template wgpu-shader --workload idle --hold-seconds 10
 python3 tools/yazelix_benchmark.py frame-run --config-template yzt-default --workload helix-jk --lines 4000 --hold-seconds 1
 python3 tools/yazelix_benchmark.py frame-run --config-template yzt-default --workload helix-viewport --lines 400 --hold-seconds 1
+python3 tools/yazelix_benchmark.py frame-run --config-template yzt-shaders --workload helix-viewport --lines 400 --hold-seconds 1
 ```
 
 The `wgpu-shader` template enables the Ghostty cursor shader probe and Rio's
@@ -165,12 +166,18 @@ python3 tools/yazelix_benchmark.py frame-run --config-template wgpu-no-effects -
 python3 tools/yazelix_benchmark.py frame-run --config-template wgpu-shader-event --workload helix-viewport --lines 400 --hold-seconds 1
 python3 tools/yazelix_benchmark.py frame-run --config-template yzt-default --workload helix-viewport --lines 400 --hold-seconds 1
 python3 tools/yazelix_benchmark.py frame-run --config-template yzt-default-game --workload helix-viewport --lines 400 --hold-seconds 1
+python3 tools/yazelix_benchmark.py frame-run --config-template yzt-shaders --workload helix-viewport --lines 400 --hold-seconds 1
+python3 tools/yazelix_benchmark.py frame-run --config-template yzt-shaders-game --workload helix-viewport --lines 400 --hold-seconds 1
 ```
 
 For packaged `yazelix-terminal`, the runtime no-effects equivalent is
 `YAZELIX_TERMINAL_PROFILE=baseline`. That profile keeps the packaged WebGPU,
 font, and window settings while removing custom shaders and trail cursor
 effects, so it is the first comparison to run before blaming event scheduling.
+The packaged default equivalent is `YAZELIX_TERMINAL_PROFILE=full`, which keeps
+Rio's native trail cursor and does not load custom shaders. Use
+`YAZELIX_TERMINAL_PROFILE=shaders` only when measuring the opt-in
+Ghostty-compatible shader stack.
 
 Platform coverage caveat: the Helix viewport latency work touches shared
 PTY/render-lock code, so Windows and macOS inherit the same scheduling behavior.

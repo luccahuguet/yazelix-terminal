@@ -26,6 +26,8 @@ WGPU_CONFIG_TEMPLATES = {
     "wgpu-shader-event",
     "yzt-default",
     "yzt-default-game",
+    "yzt-shaders",
+    "yzt-shaders-game",
 }
 
 
@@ -74,13 +76,22 @@ def write_rio_config(config_home: Path, template: str) -> Path | None:
             f"{strategy}"
             f"custom-shader = [{json_string(str(DEFAULT_SHADER))}]\n"
         )
-    elif template in {"yzt-default", "yzt-default-game"}:
-        strategy = 'strategy = "game"\n' if template == "yzt-default-game" else ""
+    elif template in {"yzt-default", "yzt-default-game", "yzt-shaders", "yzt-shaders-game"}:
+        strategy = (
+            'strategy = "game"\n'
+            if template in {"yzt-default-game", "yzt-shaders-game"}
+            else ""
+        )
+        custom_shader = (
+            f"custom-shader = {shader_list(yazelix_default_shader_paths())}\n"
+            if template in {"yzt-shaders", "yzt-shaders-game"}
+            else ""
+        )
         text = (
             "[renderer]\n"
             'backend = "Webgpu"\n'
             f"{strategy}"
-            f"custom-shader = {shader_list(yazelix_default_shader_paths())}\n"
+            f"{custom_shader}"
             "\n[effects]\n"
             "trail-cursor = true\n"
         )
@@ -701,8 +712,13 @@ def command_self_test(_: argparse.Namespace) -> int:
         config = write_rio_config(config_home, "yzt-default")
         assert config is not None
         config_text = config.read_text(encoding="utf-8")
-        assert "cursor_trail_dusk.glsl" in config_text
+        assert "custom-shader" not in config_text
         assert "trail-cursor = true" in config_text
+        shader_config = write_rio_config(config_home, "yzt-shaders")
+        assert shader_config is not None
+        shader_text = shader_config.read_text(encoding="utf-8")
+        assert "cursor_trail_dusk.glsl" in shader_text
+        assert "trail-cursor = true" in shader_text
         baseline_config = write_rio_config(config_home, "wgpu-no-effects")
         assert baseline_config is not None
         baseline_text = baseline_config.read_text(encoding="utf-8")
@@ -752,6 +768,8 @@ def build_parser() -> argparse.ArgumentParser:
             "wgpu-shader-event",
             "yzt-default",
             "yzt-default-game",
+            "yzt-shaders",
+            "yzt-shaders-game",
         ],
         default="wgpu",
     )

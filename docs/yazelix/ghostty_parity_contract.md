@@ -30,7 +30,7 @@ not implementation copying.
   input, and modern terminal protocols behave at least as well as they do in
   Ghostty for normal Yazelix workflows
 - all Yazelix Ghostty cursor shader presets render with equivalent shader
-  inputs and visual behavior
+  inputs and visual behavior in the explicit shader compatibility profile
 - regressions are covered by automated parser/protocol checks and screenshot or
   framebuffer evidence for visual behavior
 
@@ -50,6 +50,11 @@ The compatible surface is Ghostty's `custom-shader` behavior:
 - actionable errors for unreadable or invalid shader files
 - animation that repaints while shader time or cursor state changes
 - no black-window failure mode that leaves the user without an obvious recovery
+
+This parity target does not require the default dogfooding profile to run
+Ghostty cursor shaders. Rio's native trail cursor owns default Yazelix cursor
+animation; `custom-shader` is the compatibility and diagnostic surface until
+shader effects can build on Rio trail state without duplicating cursor motion.
 
 Required core uniforms:
 

@@ -1,8 +1,9 @@
 Yazelix Terminal Cursor Shaders
 ===============================
 
-These shaders are the packaged Yazelix default Ghostty-style cursor stack for
-Rio's WGPU custom-shader runtime.
+These shaders are the packaged Yazelix opt-in Ghostty-style cursor stack for
+Rio's WGPU custom-shader runtime. The default Yazelix Terminal profile uses
+Rio's native `trail-cursor` without stacking custom cursor shaders.
 
 - `cursor_trail_dusk.glsl` is generated from Yazelix's cursor trail shader
   sources with medium glow

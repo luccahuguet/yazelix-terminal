@@ -10,11 +10,11 @@ tools/yazelix_event_mode_smoke.sh ./result_yazelix_terminal_package
 ```
 
 The script verifies that the packaged config does not default to
-`renderer.strategy = "game"`, that the desktop wrapper starts with the packaged
-config, and that `YAZELIX_TERMINAL_RENDER_STRATEGY=game` still materializes a
-valid escape-hatch config. It also verifies that
-`YAZELIX_TERMINAL_PROFILE=baseline` starts a no-effects config and composes
-with the game-mode diagnostic path.
+`renderer.strategy = "game"`, that the default profile enables Rio
+`trail-cursor` without custom shaders, that the opt-in shader profile starts,
+and that `YAZELIX_TERMINAL_RENDER_STRATEGY=game` still materializes a valid
+escape-hatch config. It also verifies that `YAZELIX_TERMINAL_PROFILE=baseline`
+starts a no-effects config and composes with the game-mode diagnostic path.
 
 Manual session smoke:
 
@@ -24,5 +24,7 @@ Manual session smoke:
 4. Create and walk Zellij panes.
 5. Resize the window repeatedly.
 6. Preview an image and a PDF in Yazi.
-7. Move the editor cursor quickly and confirm the Yazelix cursor shader/trail
-   animation still renders.
+7. Move the editor cursor quickly and confirm Rio's trail cursor animation
+   renders smoothly.
+8. Relaunch with `YAZELIX_TERMINAL_PROFILE=shaders` only when validating the
+   Ghostty-compatible shader stack.

@@ -125,6 +125,7 @@ font_dir="$repo_root/sugarloaf/src/font/resources/SymbolsNerdFontMono"
 shader_dir="$repo_root/misc/yazelix_terminal_shaders"
 full_template="$repo_root/misc/yazelix_terminal_config.toml"
 baseline_template="$repo_root/misc/yazelix_terminal_config_baseline.toml"
+shader_template="$repo_root/misc/yazelix_terminal_config_shaders.toml"
 
 find_emoji_font_dir() {
   if [ -n "${YAZELIX_TERMINAL_LOCAL_EMOJI_FONT_DIR:-}" ]; then
@@ -183,6 +184,7 @@ write_resolved_config() {
 prepare_local_configs() {
   [ -r "$full_template" ] || die "full config template is not readable: $full_template"
   [ -r "$baseline_template" ] || die "baseline config template is not readable: $baseline_template"
+  [ -r "$shader_template" ] || die "shader config template is not readable: $shader_template"
   [ -d "$font_dir" ] || die "local Symbols Nerd Font directory is missing: $font_dir"
   [ -r "$font_dir/SymbolsNerdFontMono-Regular.ttf" ] || die "local Symbols Nerd Font file is missing: $font_dir/SymbolsNerdFontMono-Regular.ttf"
   [ -d "$shader_dir" ] || die "local shader directory is missing: $shader_dir"
@@ -192,6 +194,7 @@ prepare_local_configs() {
 
   write_resolved_config "$full_template" "$state_root/full/config.toml"
   write_resolved_config "$baseline_template" "$state_root/baseline/config.toml"
+  write_resolved_config "$shader_template" "$state_root/shaders/config.toml"
 }
 
 select_default_config_home() {
@@ -202,9 +205,12 @@ select_default_config_home() {
     baseline | Baseline | BASELINE | no-effects | no_effects | none | None | NONE | 0)
       printf '%s\n' "$state_root/baseline"
       ;;
+    shader | Shader | SHADER | shaders | Shaders | SHADERS | cursor-shaders | cursor_shaders | ghostty-shaders | ghostty_shaders)
+      printf '%s\n' "$state_root/shaders"
+      ;;
     *)
       printf 'Unsupported YAZELIX_TERMINAL_PROFILE/YAZELIX_TERMINAL_EFFECTS: %s\n' "${YAZELIX_TERMINAL_PROFILE:-${YAZELIX_TERMINAL_EFFECTS:-}}" >&2
-      printf 'Use full, default, baseline, no-effects, none, or 0.\n' >&2
+      printf 'Use full, default, baseline, no-effects, shaders, none, or 0.\n' >&2
       exit 64
       ;;
   esac

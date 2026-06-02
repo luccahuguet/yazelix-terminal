@@ -4,6 +4,7 @@ set -eu
 binary="@yazelix_terminal_binary@"
 default_config_home="@yazelix_terminal_config_home@"
 baseline_config_home="@yazelix_terminal_baseline_config_home@"
+shader_config_home="@yazelix_terminal_shader_config_home@"
 
 is_executable() {
   [ -n "$1" ] && [ -x "$1" ]
@@ -148,9 +149,12 @@ select_default_config_home() {
     baseline | Baseline | BASELINE | no-effects | no_effects | none | None | NONE | 0)
       printf '%s\n' "$baseline_config_home"
       ;;
+    shader | Shader | SHADER | shaders | Shaders | SHADERS | cursor-shaders | cursor_shaders | ghostty-shaders | ghostty_shaders)
+      printf '%s\n' "$shader_config_home"
+      ;;
     *)
       printf 'Unsupported YAZELIX_TERMINAL_PROFILE/YAZELIX_TERMINAL_EFFECTS: %s\n' "${YAZELIX_TERMINAL_PROFILE:-${YAZELIX_TERMINAL_EFFECTS:-}}" >&2
-      printf 'Use full, default, baseline, no-effects, none, or 0.\n' >&2
+      printf 'Use full, default, baseline, no-effects, shaders, none, or 0.\n' >&2
       exit 64
       ;;
   esac
