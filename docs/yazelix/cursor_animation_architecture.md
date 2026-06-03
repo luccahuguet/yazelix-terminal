@@ -37,11 +37,12 @@ separate redraw window or compute an independent cursor transition.
     previous/current cursor uniforms, and shader animation invalidation.
 - Runtime diagnostics on 2026-06-03 show that the WebGPU `custom-shader`
   pipeline and generated `yzxterm` configuration load in fresh windows: a
-  full-screen diagnostic shader tints the terminal, and config reloads swap the
-  diagnostic color. The same session shows that the guarded Rio-trail shader
-  branch is not visible in packaged launches yet; the next fix target is the
-  shader wrapper ABI that exposes `YAZELIX_TERMINAL_RIO_TRAIL` and
-  `iYazelixRioTrail*` uniforms to user shader text.
+  full-screen diagnostic shader tints the terminal, config reloads swap the
+  diagnostic color, and fresh packaged windows can see
+  `YAZELIX_TERMINAL_RIO_TRAIL`. The same session shows
+  `iYazelixRioTrailActive` can remain false in launches where the shader branch
+  is otherwise live; the next fix target is the renderer-side gate that
+  populates `GhosttyShaderFrameState.rio_trail`.
 
 That combination was useful for compatibility testing, but it was not an
 elegant cursor architecture. The current path keeps one cursor motion owner:
@@ -59,6 +60,20 @@ motion when `trail-cursor` is disabled.
 
 `YAZELIX_TERMINAL_RENDER_STRATEGY=game` remains a renderer scheduling
 diagnostic. It composes with each profile, but it does not imply shader use.
+
+## Diagnostics
+
+Set `YAZELIX_TERMINAL_SHADER_STATE_LOG=/path/to/shader_state.jsonl` before
+launching the terminal to record active-panel shader frame-state changes. The
+logger is disabled when the variable is unset. It records only state changes,
+including:
+
+- the active cursor render style and blink visibility
+- the cursor visual extent width/height
+- whether Rio trail cursor state was available
+- the Rio trail gate reason: `active`, `no_rio_trail_snapshot`,
+  `cursor_extent`, or `cursor_not_rendered`
+- whether the shader cursor is externally animated by Rio
 
 ## Integration Policy
 

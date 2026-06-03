@@ -157,6 +157,36 @@ fn ghostty_rio_trail_state(
     }
 }
 
+#[cfg(feature = "wgpu")]
+fn ghostty_shader_render_style_label(
+    style: Option<crate::grid_emit::CursorRenderStyle>,
+) -> &'static str {
+    match style {
+        Some(crate::grid_emit::CursorRenderStyle::Block) => "block",
+        Some(crate::grid_emit::CursorRenderStyle::BlockHollow) => "block_hollow",
+        Some(crate::grid_emit::CursorRenderStyle::Bar) => "bar",
+        Some(crate::grid_emit::CursorRenderStyle::Underline) => "underline",
+        None => "none",
+    }
+}
+
+#[cfg(feature = "wgpu")]
+fn ghostty_rio_trail_gate_label(
+    render_style: Option<crate::grid_emit::CursorRenderStyle>,
+    cursor_extent: crate::grid_emit::CursorVisualExtent,
+    rio_trail_snapshot_present: bool,
+) -> &'static str {
+    if !rio_trail_snapshot_present {
+        "no_rio_trail_snapshot"
+    } else if cursor_extent.width > 1 || cursor_extent.height > 1 {
+        "cursor_extent"
+    } else if render_style.is_none() {
+        "cursor_not_rendered"
+    } else {
+        "active"
+    }
+}
+
 fn cursor_color_u8(color: rio_backend::config::colors::ColorArray) -> [u8; 4] {
     [
         (color[0].clamp(0.0, 1.0) * 255.0) as u8,
@@ -4418,9 +4448,10 @@ impl Screen<'_> {
                     let palette = std::array::from_fn(|idx| {
                         renderer_ref.color(idx, &p.term_colors)
                     });
+                    let rio_trail_snapshot_present = rio_trail_cursor_state.is_some();
                     let cursor_can_use_rio_trail = p.cursor_extent.width <= 1
                         && p.cursor_extent.height <= 1
-                        && rio_trail_cursor_state.is_some();
+                        && rio_trail_snapshot_present;
                     let cursor = render_style.map(|style| {
                         let rect = ghostty_cursor_rect(
                             style,
@@ -4487,13 +4518,38 @@ impl Screen<'_> {
                         })
                         .take(rio_backend::sugarloaf::MAX_GHOSTTY_SHADER_EXTRA_CURSORS)
                         .collect::<Vec<_>>();
+                    let cursor_externally_animated =
+                        cursor_can_use_rio_trail && cursor.is_some();
+                    crate::frame_metrics::record_shader_state(
+                        crate::frame_metrics::ShaderStateMetrics {
+                            route_id: p.route_id,
+                            focused: self.is_focused,
+                            cursor_visible: p.cursor_visible,
+                            cursor_blinking: p.cursor_blinking,
+                            cursor_blink_visible: p.cursor_blink_visible,
+                            cursor_extent_width: p.cursor_extent.width,
+                            cursor_extent_height: p.cursor_extent.height,
+                            render_style: ghostty_shader_render_style_label(render_style),
+                            rio_trail_snapshot_present,
+                            rio_trail_gate: ghostty_rio_trail_gate_label(
+                                render_style,
+                                p.cursor_extent,
+                                rio_trail_snapshot_present,
+                            ),
+                            rio_trail_active: rio_trail.is_some(),
+                            rio_trail_animating: rio_trail
+                                .is_some_and(|state| state.animating),
+                            cursor_shader_present: cursor.is_some(),
+                            cursor_externally_animated,
+                            extra_cursor_count: extra_cursors.len(),
+                        },
+                    );
                     ghostty_shader_frame_state =
                         Some(rio_backend::sugarloaf::GhosttyShaderFrameState {
                             cursor,
                             extra_cursors,
                             rio_trail,
-                            cursor_externally_animated: cursor_can_use_rio_trail
-                                && cursor.is_some(),
+                            cursor_externally_animated,
                             cursor_visible: cursor.is_some(),
                             focus: self.is_focused,
                             palette,
