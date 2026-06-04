@@ -45,11 +45,17 @@
             doCheck = false;
           };
         packageFor = unwrapped:
-          pkgs.callPackage ./pkgRio.nix {inherit unwrapped;};
+          pkgs.callPackage ./pkgRio.nix {
+            inherit unwrapped;
+            packageProfile = "release";
+            packageChecked = true;
+          };
         fastPackageFor = unwrapped:
           pkgs.callPackage ./pkgRio.nix {
             inherit unwrapped;
             pname = "yazelix-terminal-fast";
+            packageProfile = "fast";
+            packageChecked = false;
           };
         defaultUnwrappedPackage = unwrappedPackageFor toolchains.default;
         msrvUnwrappedPackage = unwrappedPackageFor toolchains.msrv;

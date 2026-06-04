@@ -40,6 +40,7 @@ The package installs:
 - `share/yazelix-terminal/config.toml`
 - `share/yazelix-terminal/baseline/config.toml`
 - `share/yazelix-terminal/profiles/shaders/config.toml`
+- `share/yazelix-terminal/package-metadata.json`
 
 The desktop wrapper sets `--app-id yazelix-terminal`, searches for available
 Nix graphics wrappers, and maps Yazelix-owned config directories into Rio's
@@ -60,6 +61,8 @@ Yazelix should select stable profile names rather than generate or inspect
 Rio-specific shader config.
 `YAZELIX_TERMINAL_RENDER_STRATEGY=game` is kept as an explicit diagnostic
 override and composes with each profile.
+Package metadata for main Yazelix and other consumers is documented in
+[`docs/yazelix/package_metadata.md`](docs/yazelix/package_metadata.md).
 
 Wrapper override knobs:
 

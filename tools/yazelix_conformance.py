@@ -201,6 +201,7 @@ def command_verify(_: argparse.Namespace) -> int:
             raise SystemExit(f"shader probe missing {required}")
     print(f"ok {shader.relative_to(ROOT)}")
     validate_yazelix_shader_assets()
+    validate_package_metadata_sources()
     validate_keyboard_manifest()
     print(f"ok {KEYBOARD_MANIFEST.relative_to(ROOT)}")
     return 0
@@ -236,6 +237,32 @@ def validate_yazelix_shader_assets() -> None:
     print(f"ok {cursor_trail.relative_to(ROOT)}")
     for effect in generated_effects:
         print(f"ok {effect.relative_to(ROOT)}")
+
+
+def validate_package_metadata_sources() -> None:
+    required_sources = {
+        ROOT / "pkgRio.nix": [
+            'packageProfile ? "release"',
+            "packageChecked ? true",
+            "yzxtermPackageMetadata",
+            "package_profile = packageProfile",
+            "checked_package = packageChecked",
+            "share/yazelix-terminal/package-metadata.json",
+            "passthru",
+        ],
+        ROOT / "flake.nix": [
+            'packageProfile = "release";',
+            "packageChecked = true;",
+            'packageProfile = "fast";',
+            "packageChecked = false;",
+        ],
+    }
+    for path, required_patterns in required_sources.items():
+        text = path.read_text(encoding="utf-8")
+        for required in required_patterns:
+            if required not in text:
+                raise SystemExit(f"{path.relative_to(ROOT)} missing {required}")
+        print(f"ok {path.relative_to(ROOT)} metadata source")
 
 
 def command_keyboard_list(_: argparse.Namespace) -> int:

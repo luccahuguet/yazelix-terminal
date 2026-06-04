@@ -6,12 +6,49 @@
   noto-fonts-color-emoji,
   unwrapped,
   pname ? "yazelix-terminal",
+  packageProfile ? "release",
+  packageChecked ? true,
   ...
 }: let
   readTOML = f: builtins.fromTOML (builtins.readFile f);
   cargoToml = readTOML ./Cargo.toml;
   rioToml = readTOML ./frontends/rioterm/Cargo.toml;
   rlinkLibs = unwrapped.runtimeDependencies or [];
+  yzxtermPackageMetadata = {
+    schema_version = 1;
+    terminal = "yazelix-terminal";
+    package_name = pname;
+    package_profile = packageProfile;
+    checked_package = packageChecked;
+    metadata_path = "share/yazelix-terminal/package-metadata.json";
+    supported_profiles = [
+      "full"
+      "baseline"
+      "shaders"
+    ];
+    default_profile = "full";
+    baseline_profile = "baseline";
+    shader_profile = "shaders";
+    shader_asset_root = "share/yazelix-terminal/shaders";
+    config_roots = {
+      full = "share/yazelix-terminal";
+      baseline = "share/yazelix-terminal/baseline";
+      shaders = "share/yazelix-terminal/profiles/shaders";
+    };
+    wrapper_commands = {
+      terminal = "bin/yazelix-terminal";
+      desktop = "bin/yazelix-terminal-desktop";
+      rio_compat = "bin/rio";
+    };
+    wrapper_env = {
+      profile = "YAZELIX_TERMINAL_PROFILE";
+      effects = "YAZELIX_TERMINAL_EFFECTS";
+      config = "YAZELIX_TERMINAL_CONFIG";
+      render_strategy = "YAZELIX_TERMINAL_RENDER_STRATEGY";
+      graphics_wrapper = "YAZELIX_TERMINAL_GRAPHICS_WRAPPER";
+    };
+    main_yazelix_boundary = "Select package/profile by metadata; do not parse yzxterm configs or shader files.";
+  };
 
   inherit (lib.fileset) unions toSource;
 in
@@ -69,6 +106,8 @@ in
           --replace-fail "@yazelix_terminal_font_dir@" "$out/share/yazelix-terminal/fonts" \
           --replace-fail "@yazelix_terminal_emoji_font_dir@" "${noto-fonts-color-emoji}/share/fonts/truetype" \
           --replace-fail "@yazelix_terminal_shader_dir@" "$out/share/yazelix-terminal/shaders"
+        printf '%s\n' '${builtins.toJSON yzxtermPackageMetadata}' > "$out/share/yazelix-terminal/package-metadata.json"
+        chmod 644 "$out/share/yazelix-terminal/package-metadata.json"
 
         makeWrapper "${unwrapped}/bin/rio" "$out/bin/rio" \
           --set YAZELIX_TERMINAL_CHILD_ENV_SANITIZE 1 \
@@ -107,6 +146,7 @@ in
 
     passthru = {
       inherit unwrapped;
+      inherit yzxtermPackageMetadata;
       runtimeDependencies = rlinkLibs;
       buildInputs = unwrapped.buildInputs or [];
       nativeBuildInputs = unwrapped.nativeBuildInputs or [];

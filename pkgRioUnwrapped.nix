@@ -95,6 +95,7 @@ in
     checkType = "debug";
 
     passthru = {
+      inherit buildType doCheck;
       runtimeDependencies = rlinkLibs;
       buildInputs = packageBuildInputs;
       nativeBuildInputs = packageNativeBuildInputs;
