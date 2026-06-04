@@ -1,0 +1,19 @@
+{
+  "terminal_argv": [
+    "/home/lucca/pjs/yazelix-terminal/target/debug/rio",
+    "--title-placeholder",
+    "yzt-real-helix-cadence",
+    "-e",
+    "/nix/store/a6hxlnn2nzv3xafc127zdr5c4d085f7c-helix-25.07.1/bin/hx",
+    "--config",
+    "/home/lucca/pjs/yazelix-terminal/artifacts/benchmarks/frame_time/yzt-helix-cursor-cadence-after-viewport-fix-f1n/real_helix_no_effects_x11/helix_config.toml",
+    "/home/lucca/pjs/yazelix-terminal/artifacts/benchmarks/frame_time/yzt-helix-cursor-cadence-after-viewport-fix-f1n/real_helix_no_effects_x11/helix_fixture.txt"
+  ],
+  "returncode": 0,
+  "wall_time_seconds": 2.3707457959999374,
+  "window_id": "14680066",
+  "frame_log": "artifacts/benchmarks/frame_time/yzt-helix-cursor-cadence-after-viewport-fix-f1n/real_helix_no_effects_x11/frame_log.jsonl",
+  "config_template": "real-helix-wgpu-no-effects-x11",
+  "helix_binary": "/nix/store/a6hxlnn2nzv3xafc127zdr5c4d085f7c-helix-25.07.1/bin/hx",
+  "injected_keys": "j x 240, then :q!"
+}

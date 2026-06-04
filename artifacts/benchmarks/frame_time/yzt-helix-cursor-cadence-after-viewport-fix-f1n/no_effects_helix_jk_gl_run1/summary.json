@@ -1,0 +1,192 @@
+{
+  "command": {
+    "config_path": "artifacts/benchmarks/frame_time/yzt-helix-cursor-cadence-after-viewport-fix-f1n/no_effects_helix_jk_gl_run1/rio_config_home/config.toml",
+    "config_template": "wgpu-no-effects",
+    "frame_log": "artifacts/benchmarks/frame_time/yzt-helix-cursor-cadence-after-viewport-fix-f1n/no_effects_helix_jk_gl_run1/frame_log.jsonl",
+    "gpu_samples": null,
+    "proc_samples": "artifacts/benchmarks/frame_time/yzt-helix-cursor-cadence-after-viewport-fix-f1n/no_effects_helix_jk_gl_run1/proc_samples.csv",
+    "returncode": 0,
+    "terminal_argv": [
+      "target/debug/rio",
+      "-e",
+      "bash",
+      "--noprofile",
+      "--norc",
+      "-c",
+      "\npython3 - <<'PY'\nimport shutil\nimport sys\nimport time\n\nmoves = max(1, 4000)\nhold_seconds = max(0.0, 0.4)\nterminal_size = shutil.get_terminal_size((80, 24))\nrows = max(12, min(terminal_size.lines - 2, 48))\nrow = 0\ndirection = 1\n\nsys.stdout.write(\"\\x1b[?25h\\x1b[2J\\x1b[H\")\nfor index in range(rows):\n    sys.stdout.write(\n        f\"{index + 1:03d} helix cursor churn line {index + 1:03d} \"\n        \"abcdefghijklmnopqrstuvwxyz 0123456789\\r\\n\"\n    )\nsys.stdout.write(\"\\x1b[H\")\nsys.stdout.flush()\n\nfor index in range(moves):\n    if row >= rows - 2:\n        direction = -1\n    elif row <= 0:\n        direction = 1\n    row += direction\n    sys.stdout.write(\"\\x1b[B\" if direction > 0 else \"\\x1b[A\")\n    if index % 8 == 7:\n        sys.stdout.flush()\n        time.sleep(0.002)\n\nsys.stdout.flush()\ntime.sleep(hold_seconds)\nPY\n"
+    ],
+    "timed_out": false,
+    "wall_time_seconds": 1.817301993
+  },
+  "dirty_row_rebuild_count": {
+    "count": 124,
+    "max": 64.0,
+    "mean": 0.532258064516129,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.0,
+    "p99": 1.0,
+    "total": 66.0
+  },
+  "first_presented_frame_ms": 203.223221,
+  "first_redraw_ms": 203.223221,
+  "frame_count": 124,
+  "full_row_rebuild_count": {
+    "count": 124,
+    "max": 64.0,
+    "mean": 0.7580645161290323,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.0,
+    "p99": 23.09999999999988,
+    "total": 94.0
+  },
+  "grid_emit_duration_ms": {
+    "count": 124,
+    "max": 20.253273,
+    "mean": 0.26478232258064516,
+    "median": 0.0530785,
+    "min": 0.016445,
+    "p95": 0.0813724,
+    "p99": 2.807460859999992
+  },
+  "panel_collect_duration_ms": {
+    "count": 124,
+    "max": 0.131815,
+    "mean": 0.014685774193548388,
+    "median": 0.0141225,
+    "min": 0.004556,
+    "p95": 0.01831805,
+    "p99": 0.025678799999999977
+  },
+  "panel_count": {
+    "count": 124,
+    "max": 1.0,
+    "mean": 1.0,
+    "median": 1.0,
+    "min": 1.0,
+    "p95": 1.0,
+    "p99": 1.0,
+    "total": 124.0
+  },
+  "presented_delta_ms": {
+    "count": 123,
+    "max": 135.417889,
+    "mean": 8.381626585365854,
+    "median": 6.968763,
+    "min": 3.332168,
+    "p95": 11.139053099999993,
+    "p99": 21.760734780000007
+  },
+  "presented_frame_count": 124,
+  "process": {
+    "cpu_percent": 32.26895489577334,
+    "cpu_seconds": 0.57,
+    "max_rss_kb": 158348,
+    "sample_count": 36,
+    "wall_seconds": 1.766403659
+  },
+  "redraw_delta_ms": {
+    "count": 123,
+    "max": 135.417889,
+    "mean": 8.381626585365854,
+    "median": 6.968763,
+    "min": 3.332168,
+    "p95": 11.139053099999993,
+    "p99": 21.760734780000007
+  },
+  "render_duration_ms": {
+    "count": 124,
+    "max": 39.293424,
+    "mean": 2.2636240564516132,
+    "median": 1.8198345,
+    "min": 0.554484,
+    "p95": 2.52076615,
+    "p99": 19.00216175999993
+  },
+  "renderer_run_duration_ms": {
+    "count": 124,
+    "max": 0.527425,
+    "mean": 0.051563806451612904,
+    "median": 0.047946,
+    "min": 0.015315,
+    "p95": 0.0669584,
+    "p99": 0.09114593999999998
+  },
+  "row_rebuild_count": {
+    "count": 124,
+    "max": 64.0,
+    "mean": 1.2903225806451613,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.0,
+    "p99": 56.179999999999865,
+    "total": 160.0
+  },
+  "schema": 1,
+  "snapshot_visible_duration_ms": {
+    "count": 124,
+    "max": 0.034882,
+    "mean": 0.010814112903225807,
+    "median": 0.0110265,
+    "min": 0.003192,
+    "p95": 0.01412345,
+    "p99": 0.02701165999999995
+  },
+  "sugarloaf_render_duration_ms": {
+    "count": 124,
+    "max": 18.417951,
+    "mean": 1.6892141693548388,
+    "median": 1.604111,
+    "min": 0.490217,
+    "p95": 2.2207676,
+    "p99": 2.6378919899999986
+  },
+  "target_vblank_ms": {
+    "count": 124,
+    "max": 16.666,
+    "mean": 16.666,
+    "median": 16.666,
+    "min": 16.666,
+    "p95": 16.666,
+    "p99": 16.666
+  },
+  "terminal_lock_busy_count": {
+    "count": 124,
+    "max": 0.0,
+    "mean": 0.0,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.0,
+    "p99": 0.0,
+    "total": 0.0
+  },
+  "terminal_lock_wait_duration_ms": {
+    "count": 124,
+    "max": 0.045919,
+    "mean": 0.003126435483870968,
+    "median": 0.002694,
+    "min": 0.000127,
+    "p95": 0.0037881,
+    "p99": 0.01755133999999997
+  },
+  "terminal_snapshot_duration_ms": {
+    "count": 124,
+    "max": 0.51905,
+    "mean": 0.028706266129032258,
+    "median": 0.0248155,
+    "min": 0.007761,
+    "p95": 0.03689394999999999,
+    "p99": 0.053822029999999965
+  },
+  "visible_row_count": {
+    "count": 124,
+    "max": 64.0,
+    "mean": 63.725806451612904,
+    "median": 64.0,
+    "min": 30.0,
+    "p95": 64.0,
+    "p99": 64.0,
+    "total": 7902.0
+  }
+}

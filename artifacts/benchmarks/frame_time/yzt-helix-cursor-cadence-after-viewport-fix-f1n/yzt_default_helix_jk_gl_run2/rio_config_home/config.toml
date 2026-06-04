@@ -1,0 +1,5 @@
+[renderer]
+backend = "Webgpu"
+
+[effects]
+trail-cursor = true

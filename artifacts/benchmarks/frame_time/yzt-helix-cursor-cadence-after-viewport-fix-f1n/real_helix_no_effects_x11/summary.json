@@ -1,0 +1,173 @@
+{
+  "dirty_row_rebuild_count": {
+    "count": 219,
+    "max": 66.0,
+    "mean": 32.45662100456621,
+    "median": 4.0,
+    "min": 0.0,
+    "p95": 65.0,
+    "p99": 65.0,
+    "total": 7108.0
+  },
+  "first_presented_frame_ms": 176.701372,
+  "first_redraw_ms": 176.701372,
+  "frame_count": 219,
+  "full_row_rebuild_count": {
+    "count": 219,
+    "max": 66.0,
+    "mean": 0.6027397260273972,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.0,
+    "p99": 0.0,
+    "total": 132.0
+  },
+  "grid_emit_duration_ms": {
+    "count": 219,
+    "max": 21.93286,
+    "mean": 3.172093470319635,
+    "median": 3.837948,
+    "min": 0.010194,
+    "p95": 7.060039899999999,
+    "p99": 13.834489679999997
+  },
+  "panel_collect_duration_ms": {
+    "count": 219,
+    "max": 0.025986,
+    "mean": 0.00850582191780822,
+    "median": 0.006958,
+    "min": 0.003127,
+    "p95": 0.0168883,
+    "p99": 0.023106939999999992
+  },
+  "panel_count": {
+    "count": 219,
+    "max": 1.0,
+    "mean": 1.0,
+    "median": 1.0,
+    "min": 1.0,
+    "p95": 1.0,
+    "p99": 1.0,
+    "total": 219.0
+  },
+  "presented_delta_ms": {
+    "count": 151,
+    "max": 347.110059,
+    "mean": 13.354280701986756,
+    "median": 7.175243,
+    "min": 5.767715,
+    "p95": 17.5689325,
+    "p99": 145.3145595
+  },
+  "presented_frame_count": 152,
+  "process": {
+    "cpu_percent": null,
+    "cpu_seconds": null,
+    "max_rss_kb": null,
+    "sample_count": 0,
+    "wall_seconds": null
+  },
+  "redraw_delta_ms": {
+    "count": 218,
+    "max": 347.110059,
+    "mean": 9.283787389908257,
+    "median": 7.051267,
+    "min": 0.174931,
+    "p95": 15.276290749999967,
+    "p99": 30.79500003999983
+  },
+  "render_duration_ms": {
+    "count": 219,
+    "max": 50.785518,
+    "mean": 4.39319802739726,
+    "median": 5.594375,
+    "min": 0.02489,
+    "p95": 9.5606535,
+    "p99": 24.218411899999943
+  },
+  "renderer_run_duration_ms": {
+    "count": 219,
+    "max": 27.704787,
+    "mean": 0.20887629680365297,
+    "median": 0.031656,
+    "min": 0.004201,
+    "p95": 0.5886818,
+    "p99": 1.0964906599999975
+  },
+  "row_rebuild_count": {
+    "count": 219,
+    "max": 66.0,
+    "mean": 33.05936073059361,
+    "median": 11.0,
+    "min": 0.0,
+    "p95": 65.0,
+    "p99": 65.82,
+    "total": 7240.0
+  },
+  "schema": 1,
+  "snapshot_visible_duration_ms": {
+    "count": 219,
+    "max": 0.073423,
+    "mean": 0.012018767123287671,
+    "median": 0.014687,
+    "min": 0.0,
+    "p95": 0.026416299999999997,
+    "p99": 0.03529326
+  },
+  "sugarloaf_render_duration_ms": {
+    "count": 219,
+    "max": 19.814509,
+    "mean": 0.8851531552511416,
+    "median": 0.710575,
+    "min": 0.000304,
+    "p95": 2.0926689999999963,
+    "p99": 4.031396639999996
+  },
+  "target_vblank_ms": {
+    "count": 219,
+    "max": 6.95,
+    "mean": 6.95,
+    "median": 6.95,
+    "min": 6.95,
+    "p95": 6.95,
+    "p99": 6.95
+  },
+  "terminal_lock_busy_count": {
+    "count": 219,
+    "max": 0.0,
+    "mean": 0.0,
+    "median": 0.0,
+    "min": 0.0,
+    "p95": 0.0,
+    "p99": 0.0,
+    "total": 0.0
+  },
+  "terminal_lock_wait_duration_ms": {
+    "count": 219,
+    "max": 27.573142,
+    "mean": 0.1781795525114155,
+    "median": 0.000245,
+    "min": 0.0,
+    "p95": 0.5563416,
+    "p99": 1.0550846599999975
+  },
+  "terminal_snapshot_duration_ms": {
+    "count": 219,
+    "max": 0.095626,
+    "mean": 0.019008082191780823,
+    "median": 0.022661,
+    "min": 0.0,
+    "p95": 0.03901439999999999,
+    "p99": 0.050537320000000004
+  },
+  "visible_row_count": {
+    "count": 219,
+    "max": 66.0,
+    "mean": 66.0,
+    "median": 66.0,
+    "min": 66.0,
+    "p95": 66.0,
+    "p99": 66.0,
+    "total": 14454.0
+  }
+}
