@@ -211,15 +211,15 @@ void renderMonoColorTrail(
     float rioTrailMotion = yazelixRioTrailMotionFactor(currentCursor);
     sdfTrail = mix(sdfTrail, yazelixRioTrailSdf(vu, offsetFactor), rioTrailActive);
     float trailGlowOffset = mix(mod + 0.010, -0.010, rioTrailActive);
-    float trailGlowWidth = mix(0.035, mix(0.110, 0.180, rioTrailMotion), rioTrailActive);
-    float trailGlowGain = mix(1.0, mix(0.70, 1.45, rioTrailMotion), rioTrailActive);
+    float trailGlowWidth = mix(0.035, mix(0.018, 0.300, rioTrailMotion), rioTrailActive);
+    float trailGlowGain = mix(1.0, mix(0.0, 1.75, rioTrailMotion), rioTrailActive);
     float trailEdgeOffset = mix(mod, -0.004, rioTrailActive);
-    float trailEdgeWidth = mix(0.006, mix(0.012, 0.026, rioTrailMotion), rioTrailActive);
+    float trailEdgeWidth = mix(0.006, mix(0.007, 0.032, rioTrailMotion), rioTrailActive);
     float trailCoreOffset = mix(mod, -0.002, rioTrailActive);
-    float trailSaturation = mix(1.5, mix(1.75, 2.35, rioTrailMotion), rioTrailActive);
-    float cursorGlowWidth = mix(0.004, mix(0.006, 0.016, rioTrailMotion), rioTrailActive);
-    float cursorGlowGain = mix(1.0, mix(0.70, 1.45, rioTrailMotion), rioTrailActive);
-    float cursorEdgeWidth = mix(0.004, mix(0.006, 0.012, rioTrailMotion), rioTrailActive);
+    float trailSaturation = mix(1.5, mix(1.55, 2.50, rioTrailMotion), rioTrailActive);
+    float cursorGlowWidth = mix(0.004, mix(0.003, 0.022, rioTrailMotion), rioTrailActive);
+    float cursorGlowGain = mix(1.0, mix(0.35, 1.55, rioTrailMotion), rioTrailActive);
+    float cursorEdgeWidth = mix(0.004, mix(0.005, 0.014, rioTrailMotion), rioTrailActive);
 
     float progress = clamp((iTime - iTimeCursorChange) / duration, 0.0, 1.0);
     float easedProgress = ease(progress);
@@ -283,15 +283,15 @@ void renderSplitColorTrail(
     float pulse = 0.05 * sin(iTime * 1.6) * clamp(blendEnabled, 0.0, 1.0);
     float edgeMix = clamp(splitMix + pulse * 0.45, 0.0, 1.0);
     float trailGlowOffset = mix(mod + 0.010, -0.010, rioTrailActive);
-    float trailGlowWidth = mix(0.035, mix(0.110, 0.180, rioTrailMotion), rioTrailActive);
-    float trailGlowGain = mix(1.0, mix(0.70, 1.45, rioTrailMotion), rioTrailActive);
+    float trailGlowWidth = mix(0.035, mix(0.018, 0.300, rioTrailMotion), rioTrailActive);
+    float trailGlowGain = mix(1.0, mix(0.0, 1.75, rioTrailMotion), rioTrailActive);
     float trailEdgeOffset = mix(mod, -0.004, rioTrailActive);
-    float trailEdgeWidth = mix(0.006, mix(0.012, 0.026, rioTrailMotion), rioTrailActive);
+    float trailEdgeWidth = mix(0.006, mix(0.007, 0.032, rioTrailMotion), rioTrailActive);
     float trailCoreOffset = mix(mod, -0.002, rioTrailActive);
-    float trailSaturation = mix(1.45, mix(1.75, 2.35, rioTrailMotion), rioTrailActive);
-    float cursorGlowWidth = mix(0.004, mix(0.006, 0.016, rioTrailMotion), rioTrailActive);
-    float cursorGlowGain = mix(1.0, mix(0.70, 1.45, rioTrailMotion), rioTrailActive);
-    float cursorEdgeWidth = mix(0.004, mix(0.006, 0.012, rioTrailMotion), rioTrailActive);
+    float trailSaturation = mix(1.45, mix(1.55, 2.50, rioTrailMotion), rioTrailActive);
+    float cursorGlowWidth = mix(0.004, mix(0.003, 0.022, rioTrailMotion), rioTrailActive);
+    float cursorGlowGain = mix(1.0, mix(0.35, 1.55, rioTrailMotion), rioTrailActive);
+    float cursorEdgeWidth = mix(0.004, mix(0.005, 0.014, rioTrailMotion), rioTrailActive);
 
     vec4 base = mix(color0, color1, splitMix);
     vec4 edge = mix(color0, color1, edgeMix);
