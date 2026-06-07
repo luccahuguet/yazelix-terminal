@@ -8,6 +8,7 @@ This document records which cursor shader and profile assets are owned by
 `yazelix-terminal` owns every Rio-aware shader behavior detail:
 
 - the packaged Rio config profiles under `share/yazelix-terminal`
+- the packaged emoji fallback profile roots under `share/yazelix-terminal/emoji`
 - the WebGPU `custom-shader` profile shape
 - the generated GLSL files installed under `share/yazelix-terminal/shaders`
 - the guarded Rio trail extension uniform reads
@@ -30,6 +31,11 @@ or the compatibility alias `YAZELIX_TERMINAL_EFFECTS=none`. The diagnostic
 `YAZELIX_TERMINAL_RENDER_STRATEGY=game` knob creates a runtime config copy but
 does not change ownership of the profile assets.
 
+`YAZELIX_TERMINAL_EMOJI_FONT` selects the packaged emoji fallback preset before
+profile selection. `noto` uses the default profile roots above, while `twitter`
+and `serenityos` use matching profile roots under
+`share/yazelix-terminal/emoji/<preset>/`.
+
 ## Packaged Shader Assets
 
 | Asset | Installed path | Ownership decision |
@@ -44,9 +50,10 @@ reviewed when the shader ABI changes.
 
 ## Main Yazelix Inputs
 
-Main Yazelix may choose among supported yzxterm profiles, request a release or
-fast package, and pass stable cursor settings such as a named glow level when a
-future package metadata surface advertises that capability.
+Main Yazelix may choose among supported yzxterm profiles and emoji fallback
+presets, request a release or fast package, and pass stable cursor settings
+such as a named glow level when a future package metadata surface advertises
+that capability.
 
 Main Yazelix must not:
 

@@ -5,6 +5,7 @@ binary="@yazelix_terminal_binary@"
 default_config_home="@yazelix_terminal_config_home@"
 baseline_config_home="@yazelix_terminal_baseline_config_home@"
 shader_config_home="@yazelix_terminal_shader_config_home@"
+emoji_config_home="@yazelix_terminal_emoji_config_home@"
 
 is_executable() {
   [ -n "$1" ] && [ -x "$1" ]
@@ -141,20 +142,62 @@ configure_rio_config() {
   esac
 }
 
-select_default_config_home() {
+select_emoji_font() {
+  case "${YAZELIX_TERMINAL_EMOJI_FONT:-noto}" in
+    "" | noto | Noto | NOTO | default | Default | DEFAULT)
+      printf '%s\n' "noto"
+      ;;
+    twitter | Twitter | TWITTER | twemoji | Twemoji | TWEMOJI)
+      printf '%s\n' "twitter"
+      ;;
+    serenityos | SerenityOS | SERENITYOS | serenity | Serenity | SERENITY | serenity-os | Serenity-OS | SERENITY-OS)
+      printf '%s\n' "serenityos"
+      ;;
+    *)
+      printf 'Unsupported YAZELIX_TERMINAL_EMOJI_FONT: %s\n' "${YAZELIX_TERMINAL_EMOJI_FONT:-}" >&2
+      printf 'Use noto, twitter, or serenityos.\n' >&2
+      exit 64
+      ;;
+  esac
+}
+
+select_profile_config_home() {
+  full_config_home="$1"
+  no_effects_config_home="$2"
+  shaders_config_home="$3"
+
   case "${YAZELIX_TERMINAL_PROFILE:-${YAZELIX_TERMINAL_EFFECTS:-full}}" in
     "" | full | Full | FULL | effects | Effects | EFFECTS | default | Default | DEFAULT)
-      printf '%s\n' "$default_config_home"
+      printf '%s\n' "$full_config_home"
       ;;
     baseline | Baseline | BASELINE | no-effects | no_effects | none | None | NONE | 0)
-      printf '%s\n' "$baseline_config_home"
+      printf '%s\n' "$no_effects_config_home"
       ;;
     shader | Shader | SHADER | shaders | Shaders | SHADERS | cursor-shaders | cursor_shaders | ghostty-shaders | ghostty_shaders)
-      printf '%s\n' "$shader_config_home"
+      printf '%s\n' "$shaders_config_home"
       ;;
     *)
       printf 'Unsupported YAZELIX_TERMINAL_PROFILE/YAZELIX_TERMINAL_EFFECTS: %s\n' "${YAZELIX_TERMINAL_PROFILE:-${YAZELIX_TERMINAL_EFFECTS:-}}" >&2
       printf 'Use full, default, baseline, no-effects, shaders, none, or 0.\n' >&2
+      exit 64
+      ;;
+  esac
+}
+
+select_default_config_home() {
+  selected_emoji_font="$(select_emoji_font)"
+  case "$selected_emoji_font" in
+    noto)
+      select_profile_config_home "$default_config_home" "$baseline_config_home" "$shader_config_home"
+      ;;
+    twitter | serenityos)
+      select_profile_config_home \
+        "$emoji_config_home/$selected_emoji_font" \
+        "$emoji_config_home/$selected_emoji_font/baseline" \
+        "$emoji_config_home/$selected_emoji_font/profiles/shaders"
+      ;;
+    *)
+      printf 'Unsupported normalized yzxterm emoji font: %s\n' "$selected_emoji_font" >&2
       exit 64
       ;;
   esac

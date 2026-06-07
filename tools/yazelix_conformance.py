@@ -247,8 +247,9 @@ def validate_yazelix_font_config() -> None:
     text = fonts.read_text(encoding="utf-8")
     parsed = tomllib.loads(text)
     symbol_map = parsed["fonts"]["symbol-map"]
+    emoji_family_placeholder = "@yazelix_terminal_emoji_font_family@"
     required = (
-        'font-family = "Noto Color Emoji"',
+        f'font-family = "{emoji_family_placeholder}"',
         'start = "2600", end = "2605"',
         'start = "26A0", end = "26A2"',
         'start = "2744", end = "2745"',
@@ -260,6 +261,7 @@ def validate_yazelix_font_config() -> None:
         if pattern not in text:
             raise SystemExit(f"{fonts.relative_to(ROOT)} missing {pattern}")
     forbidden = (
+        'font-family = "Noto Color Emoji"',
         'font-family = "Noto Emoji"',
         'start = "2600", end = "2800"',
         'start = "2B00", end = "2C00"',
@@ -288,21 +290,30 @@ def validate_yazelix_font_config() -> None:
     }
     for name, codepoint in color_emoji_codepoints.items():
         family = mapped_family(codepoint)
-        if family != "Noto Color Emoji":
+        if family != emoji_family_placeholder:
             raise SystemExit(
                 f"{fonts.relative_to(ROOT)} maps {name} U+{codepoint:04X} "
-                f"to {family!r}, expected 'Noto Color Emoji'"
+                f"to {family!r}, expected {emoji_family_placeholder!r}"
             )
     prompt_arrow = 0x276F
-    if mapped_family(prompt_arrow) == "Noto Color Emoji":
+    if mapped_family(prompt_arrow) == emoji_family_placeholder:
         raise SystemExit(
             f"{fonts.relative_to(ROOT)} maps prompt arrow U+276F to emoji"
         )
 
     pkg = ROOT / "pkgRio.nix"
     pkg_text = pkg.read_text(encoding="utf-8")
-    if "noto-fonts-color-emoji" not in pkg_text:
-        raise SystemExit(f"{pkg.relative_to(ROOT)} does not package color emoji")
+    for required_pkg_pattern in (
+        "noto-fonts-color-emoji",
+        "twitter-color-emoji",
+        "serenityos-emoji-font",
+        "supported_emoji_fonts",
+        "YAZELIX_TERMINAL_EMOJI_FONT",
+    ):
+        if required_pkg_pattern not in pkg_text:
+            raise SystemExit(
+                f"{pkg.relative_to(ROOT)} missing {required_pkg_pattern}"
+            )
     if "noto-fonts-monochrome-emoji" in pkg_text:
         raise SystemExit(f"{pkg.relative_to(ROOT)} still packages monochrome emoji")
     print(f"ok {fonts.relative_to(ROOT)}")

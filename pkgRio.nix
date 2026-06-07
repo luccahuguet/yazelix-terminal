@@ -4,6 +4,8 @@
   makeWrapper,
   ncurses,
   noto-fonts-color-emoji,
+  serenityos-emoji-font,
+  twitter-color-emoji,
   unwrapped,
   pname ? "yazelix-terminal",
   packageProfile ? "release",
@@ -14,6 +16,44 @@
   cargoToml = readTOML ./Cargo.toml;
   rioToml = readTOML ./frontends/rioterm/Cargo.toml;
   rlinkLibs = unwrapped.runtimeDependencies or [];
+  configRoots = {
+    full = "share/yazelix-terminal";
+    baseline = "share/yazelix-terminal/baseline";
+    shaders = "share/yazelix-terminal/profiles/shaders";
+  };
+  emojiConfigRootsFor = emojiFont: {
+    full = "share/yazelix-terminal/emoji/${emojiFont}";
+    baseline = "share/yazelix-terminal/emoji/${emojiFont}/baseline";
+    shaders = "share/yazelix-terminal/emoji/${emojiFont}/profiles/shaders";
+  };
+  supportedEmojiFonts = [
+    "noto"
+    "twitter"
+    "serenityos"
+  ];
+  emojiFontPresets = {
+    noto = {
+      family = "Noto Color Emoji";
+      fontDir = "${noto-fonts-color-emoji}/share/fonts";
+      configRoots = configRoots;
+    };
+    twitter = {
+      family = "Twitter Color Emoji";
+      fontDir = "${twitter-color-emoji}/share/fonts";
+      configRoots = emojiConfigRootsFor "twitter";
+    };
+    serenityos = {
+      family = "SerenityOS Emoji";
+      fontDir = "${serenityos-emoji-font}/share/fonts";
+      configRoots = emojiConfigRootsFor "serenityos";
+    };
+  };
+  emojiFontMetadata =
+    lib.genAttrs supportedEmojiFonts
+    (name: {
+      family = emojiFontPresets.${name}.family;
+      config_roots = emojiFontPresets.${name}.configRoots;
+    });
   yzxtermPackageMetadata = {
     schema_version = 1;
     terminal = "yazelix-terminal";
@@ -29,12 +69,11 @@
     default_profile = "full";
     baseline_profile = "baseline";
     shader_profile = "shaders";
+    supported_emoji_fonts = supportedEmojiFonts;
+    default_emoji_font = "noto";
+    emoji_fonts = emojiFontMetadata;
     shader_asset_root = "share/yazelix-terminal/shaders";
-    config_roots = {
-      full = "share/yazelix-terminal";
-      baseline = "share/yazelix-terminal/baseline";
-      shaders = "share/yazelix-terminal/profiles/shaders";
-    };
+    config_roots = configRoots;
     wrapper_commands = {
       terminal = "bin/yazelix-terminal";
       desktop = "bin/yazelix-terminal-desktop";
@@ -47,6 +86,7 @@
       app_id = "YAZELIX_TERMINAL_APP_ID";
       render_strategy = "YAZELIX_TERMINAL_RENDER_STRATEGY";
       graphics_wrapper = "YAZELIX_TERMINAL_GRAPHICS_WRAPPER";
+      emoji_font = "YAZELIX_TERMINAL_EMOJI_FONT";
     };
     main_yazelix_boundary = "Select package/profile by metadata; do not parse yzxterm configs or shader files.";
   };
@@ -96,6 +136,8 @@ in
         render_yazelix_config() {
           src="$1"
           dst="$2"
+          emoji_font_dir="$3"
+          emoji_font_family="$4"
           tmp_with_fonts="$NIX_BUILD_TOP/$(basename "$dst").with-fonts"
           tmp_resolved_fonts="$NIX_BUILD_TOP/$(basename "$dst").resolved-fonts"
 
@@ -109,7 +151,8 @@ in
 
           substitute "$tmp_with_fonts" "$tmp_resolved_fonts" \
             --replace-fail "@yazelix_terminal_font_dir@" "$out/share/yazelix-terminal/fonts" \
-            --replace-fail "@yazelix_terminal_emoji_font_dir@" "${noto-fonts-color-emoji}/share/fonts"
+            --replace-fail "@yazelix_terminal_emoji_font_dir@" "$emoji_font_dir" \
+            --replace-fail "@yazelix_terminal_emoji_font_family@" "$emoji_font_family"
 
           if grep -q "@yazelix_terminal_shader_dir@" "$tmp_resolved_fonts"; then
             substitute "$tmp_resolved_fonts" "$dst" \
@@ -125,14 +168,37 @@ in
           fi
         }
 
-        render_yazelix_config misc/yazelix_terminal_config.toml \
-          $out/share/yazelix-terminal/config.toml
-        install -dm 755 $out/share/yazelix-terminal/baseline
-        render_yazelix_config misc/yazelix_terminal_config_baseline.toml \
-          $out/share/yazelix-terminal/baseline/config.toml
-        install -dm 755 $out/share/yazelix-terminal/profiles/shaders
-        render_yazelix_config misc/yazelix_terminal_config_shaders.toml \
-          $out/share/yazelix-terminal/profiles/shaders/config.toml
+        render_yazelix_profile_set() {
+          config_root="$1"
+          emoji_font_dir="$2"
+          emoji_font_family="$3"
+
+          install -dm 755 "$config_root"
+          render_yazelix_config misc/yazelix_terminal_config.toml \
+            "$config_root/config.toml" \
+            "$emoji_font_dir" \
+            "$emoji_font_family"
+          install -dm 755 "$config_root/baseline"
+          render_yazelix_config misc/yazelix_terminal_config_baseline.toml \
+            "$config_root/baseline/config.toml" \
+            "$emoji_font_dir" \
+            "$emoji_font_family"
+          install -dm 755 "$config_root/profiles/shaders"
+          render_yazelix_config misc/yazelix_terminal_config_shaders.toml \
+            "$config_root/profiles/shaders/config.toml" \
+            "$emoji_font_dir" \
+            "$emoji_font_family"
+        }
+
+        render_yazelix_profile_set "$out/share/yazelix-terminal" \
+          "${emojiFontPresets.noto.fontDir}" \
+          "${emojiFontPresets.noto.family}"
+        render_yazelix_profile_set "$out/share/yazelix-terminal/emoji/twitter" \
+          "${emojiFontPresets.twitter.fontDir}" \
+          "${emojiFontPresets.twitter.family}"
+        render_yazelix_profile_set "$out/share/yazelix-terminal/emoji/serenityos" \
+          "${emojiFontPresets.serenityos.fontDir}" \
+          "${emojiFontPresets.serenityos.family}"
         printf '%s\n' '${builtins.toJSON yzxtermPackageMetadata}' > "$out/share/yazelix-terminal/package-metadata.json"
         chmod 644 "$out/share/yazelix-terminal/package-metadata.json"
 
@@ -145,7 +211,8 @@ in
           --replace-fail "@yazelix_terminal_binary@" "$out/bin/yazelix-terminal" \
           --replace-fail "@yazelix_terminal_config_home@" "$out/share/yazelix-terminal" \
           --replace-fail "@yazelix_terminal_baseline_config_home@" "$out/share/yazelix-terminal/baseline" \
-          --replace-fail "@yazelix_terminal_shader_config_home@" "$out/share/yazelix-terminal/profiles/shaders"
+          --replace-fail "@yazelix_terminal_shader_config_home@" "$out/share/yazelix-terminal/profiles/shaders" \
+          --replace-fail "@yazelix_terminal_emoji_config_home@" "$out/share/yazelix-terminal/emoji"
         chmod 755 "$out/bin/yazelix-terminal-desktop"
 
         install -dm 755 "$out/share/applications"

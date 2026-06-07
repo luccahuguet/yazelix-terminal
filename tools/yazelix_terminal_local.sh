@@ -128,7 +128,46 @@ full_template="$repo_root/misc/yazelix_terminal_config.toml"
 baseline_template="$repo_root/misc/yazelix_terminal_config_baseline.toml"
 shader_template="$repo_root/misc/yazelix_terminal_config_shaders.toml"
 
+select_emoji_font() {
+  case "${YAZELIX_TERMINAL_LOCAL_EMOJI_FONT:-${YAZELIX_TERMINAL_EMOJI_FONT:-noto}}" in
+    "" | noto | Noto | NOTO | default | Default | DEFAULT)
+      printf '%s\n' "noto"
+      ;;
+    twitter | Twitter | TWITTER | twemoji | Twemoji | TWEMOJI)
+      printf '%s\n' "twitter"
+      ;;
+    serenityos | SerenityOS | SERENITYOS | serenity | Serenity | SERENITY | serenity-os | Serenity-OS | SERENITY-OS)
+      printf '%s\n' "serenityos"
+      ;;
+    *)
+      printf 'Unsupported YAZELIX_TERMINAL_LOCAL_EMOJI_FONT/YAZELIX_TERMINAL_EMOJI_FONT: %s\n' "${YAZELIX_TERMINAL_LOCAL_EMOJI_FONT:-${YAZELIX_TERMINAL_EMOJI_FONT:-}}" >&2
+      printf 'Use noto, twitter, or serenityos.\n' >&2
+      exit 64
+      ;;
+  esac
+}
+
+emoji_font_family_for() {
+  case "$1" in
+    noto)
+      printf '%s\n' "Noto Color Emoji"
+      ;;
+    twitter)
+      printf '%s\n' "Twitter Color Emoji"
+      ;;
+    serenityos)
+      printf '%s\n' "SerenityOS Emoji"
+      ;;
+    *)
+      die "unsupported normalized emoji font: $1"
+      ;;
+  esac
+}
+
 find_emoji_font_dir() {
+  emoji_font="$(select_emoji_font)"
+  emoji_font_family="$(emoji_font_family_for "$emoji_font")"
+
   if [ -n "${YAZELIX_TERMINAL_LOCAL_EMOJI_FONT_DIR:-}" ]; then
     [ -d "$YAZELIX_TERMINAL_LOCAL_EMOJI_FONT_DIR" ] || die "YAZELIX_TERMINAL_LOCAL_EMOJI_FONT_DIR is not a directory: $YAZELIX_TERMINAL_LOCAL_EMOJI_FONT_DIR"
     printf '%s\n' "$YAZELIX_TERMINAL_LOCAL_EMOJI_FONT_DIR"
@@ -136,11 +175,24 @@ find_emoji_font_dir() {
   fi
 
   if command -v fc-match >/dev/null 2>&1; then
-    emoji_font_file="$(fc-match -f '%{file}\n' 'Noto Color Emoji' 2>/dev/null | sed -n '1p')"
+    emoji_font_match="$(fc-match -f '%{family}\t%{file}\n' "$emoji_font_family" 2>/dev/null | sed -n '1p')"
+    emoji_font_match_family="$(printf '%s\n' "$emoji_font_match" | cut -f1)"
+    emoji_font_file="$(printf '%s\n' "$emoji_font_match" | cut -f2-)"
+    case "$emoji_font_match_family" in
+      *"$emoji_font_family"*)
+        ;;
+      *)
+        emoji_font_file=""
+        ;;
+    esac
     if [ -n "$emoji_font_file" ] && [ -r "$emoji_font_file" ]; then
       dirname -- "$emoji_font_file"
       return 0
     fi
+  fi
+
+  if [ "$emoji_font" != "noto" ]; then
+    die "could not find $emoji_font_family through fontconfig; install its font package or set YAZELIX_TERMINAL_LOCAL_EMOJI_FONT_DIR"
   fi
 
   for candidate in \
@@ -167,9 +219,12 @@ escape_sed_replacement() {
 write_resolved_config() {
   src="$1"
   dst="$2"
+  emoji_font="$(select_emoji_font)"
+  emoji_font_family="$(emoji_font_family_for "$emoji_font")"
   emoji_font_dir="$(find_emoji_font_dir)"
   font_dir_escaped="$(escape_sed_replacement "$font_dir")"
   emoji_font_dir_escaped="$(escape_sed_replacement "$emoji_font_dir")"
+  emoji_font_family_escaped="$(escape_sed_replacement "$emoji_font_family")"
   shader_dir_escaped="$(escape_sed_replacement "$shader_dir")"
 
   mkdir -p "$(dirname -- "$dst")"
@@ -183,6 +238,7 @@ write_resolved_config() {
   sed \
     -e "s|@yazelix_terminal_font_dir@|$font_dir_escaped|g" \
     -e "s|@yazelix_terminal_emoji_font_dir@|$emoji_font_dir_escaped|g" \
+    -e "s|@yazelix_terminal_emoji_font_family@|$emoji_font_family_escaped|g" \
     -e "s|@yazelix_terminal_shader_dir@|$shader_dir_escaped|g" \
     "$dst.template.tmp" >"$dst.tmp"
   rm -f "$dst.template.tmp"

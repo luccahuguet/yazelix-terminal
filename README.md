@@ -57,6 +57,8 @@ The package installs:
 - `share/yazelix-terminal/config.toml`
 - `share/yazelix-terminal/baseline/config.toml`
 - `share/yazelix-terminal/profiles/shaders/config.toml`
+- `share/yazelix-terminal/emoji/twitter/config.toml`
+- `share/yazelix-terminal/emoji/serenityos/config.toml`
 - `share/yazelix-terminal/package-metadata.json`
 
 The desktop wrapper sets the standalone app id to `yazelix-terminal`, or uses
@@ -72,11 +74,15 @@ The packaged config disables confirm-before-quit, disables native window
 decorations, sets the terminal font size to `18.0`, and uses the default event
 renderer strategy with WebGPU and Rio's native trail cursor effect. It also
 maps private-use icon glyphs to `Symbols Nerd Font Mono` and common emoji/status
-symbol ranges to `Noto Color Emoji` from the package closure.
+symbol ranges to the selected packaged emoji fallback. `noto` remains the
+default, while `twitter` and `serenityos` provide free alternate emoji font
+presets for visual dogfooding.
 `YAZELIX_TERMINAL_PROFILE=baseline` selects the same packaged font, window, and
 WebGPU baseline without custom shaders or trail cursor effects for performance
 comparisons. `YAZELIX_TERMINAL_PROFILE=shaders` selects the packaged
 Ghostty-compatible cursor shader stack for compatibility and visual diagnostics.
+`YAZELIX_TERMINAL_EMOJI_FONT=twitter` or `serenityos` selects the matching
+packaged profile root before launch. Invalid values fail clearly.
 Yazelix Terminal owns these profile assets and Rio-aware shader details; main
 Yazelix should select stable profile names rather than generate or inspect
 Rio-specific shader config.
@@ -95,6 +101,9 @@ Wrapper override knobs:
 | `YAZELIX_TERMINAL_PROFILE=baseline` | Uses the packaged no-effects baseline config |
 | `YAZELIX_TERMINAL_PROFILE=shaders` | Uses the opt-in Ghostty-compatible shader profile |
 | `YAZELIX_TERMINAL_EFFECTS=none` | Alias for the baseline no-effects profile |
+| `YAZELIX_TERMINAL_EMOJI_FONT=noto` | Uses the default Noto Color Emoji fallback |
+| `YAZELIX_TERMINAL_EMOJI_FONT=twitter` | Uses the packaged Twitter/Twemoji color emoji fallback |
+| `YAZELIX_TERMINAL_EMOJI_FONT=serenityos` | Uses the packaged SerenityOS emoji fallback |
 | `YAZELIX_TERMINAL_RENDER_STRATEGY=events` | Uses the packaged config with Rio's default event renderer strategy |
 | `YAZELIX_TERMINAL_RENDER_STRATEGY=game` | Creates a runtime copy of the packaged config with `strategy = "game"` for diagnostics |
 | `YAZELIX_TERMINAL_GRAPHICS_WRAPPER=none` | Skips automatic nixGL/nixVulkan wrapper discovery |

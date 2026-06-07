@@ -25,6 +25,9 @@ main Yazelix consumption.
 | `default_profile` | Profile selected by default, currently `full` |
 | `baseline_profile` | No-effects profile name, currently `baseline` |
 | `shader_profile` | Opt-in shader profile name, currently `shaders` |
+| `supported_emoji_fonts` | Stable emoji fallback preset names that the wrapper accepts |
+| `default_emoji_font` | Emoji fallback selected by default, currently `noto` |
+| `emoji_fonts` | Family names and profile config roots for each supported emoji fallback preset |
 | `shader_asset_root` | Relative directory for terminal-owned shader assets |
 | `config_roots` | Relative config roots for each stable profile |
 | `wrapper_commands` | Relative package commands for terminal, desktop wrapper, and Rio compatibility |
@@ -32,9 +35,10 @@ main Yazelix consumption.
 | `main_yazelix_boundary` | Human-readable boundary reminder |
 
 `wrapper_env` currently advertises `profile`, `effects`, `config`, `app_id`,
-`render_strategy`, and `graphics_wrapper`. `app_id` lets an integrated parent
-runtime associate the terminal window with its own desktop entry while the
-standalone yzxterm package keeps `yazelix-terminal`.
+`render_strategy`, `graphics_wrapper`, and `emoji_font`. `app_id` lets an
+integrated parent runtime associate the terminal window with its own desktop
+entry while the standalone yzxterm package keeps `yazelix-terminal`.
+`emoji_font` selects one of `noto`, `twitter`, or `serenityos`.
 
 ## Release And Fast Distinction
 
@@ -71,6 +75,7 @@ Main Yazelix may:
 
 - select a yzxterm package by metadata
 - select one of the advertised `supported_profiles`
+- select one of the advertised `supported_emoji_fonts`
 - use `wrapper_commands.terminal` or `wrapper_commands.desktop` to launch the
   package
 - locate yzxterm-owned shader assets through `shader_asset_root` for diagnostics
