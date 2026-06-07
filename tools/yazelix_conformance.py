@@ -201,6 +201,7 @@ def command_verify(_: argparse.Namespace) -> int:
             raise SystemExit(f"shader probe missing {required}")
     print(f"ok {shader.relative_to(ROOT)}")
     validate_yazelix_shader_assets()
+    validate_yazelix_font_config()
     validate_package_metadata_sources()
     validate_keyboard_manifest()
     print(f"ok {KEYBOARD_MANIFEST.relative_to(ROOT)}")
@@ -237,6 +238,74 @@ def validate_yazelix_shader_assets() -> None:
     print(f"ok {cursor_trail.relative_to(ROOT)}")
     for effect in generated_effects:
         print(f"ok {effect.relative_to(ROOT)}")
+
+
+def validate_yazelix_font_config() -> None:
+    import tomllib
+
+    fonts = ROOT / "misc" / "yazelix_terminal_fonts.toml"
+    text = fonts.read_text(encoding="utf-8")
+    parsed = tomllib.loads(text)
+    symbol_map = parsed["fonts"]["symbol-map"]
+    required = (
+        'font-family = "Noto Color Emoji"',
+        'start = "2600", end = "2605"',
+        'start = "26A0", end = "26A2"',
+        'start = "2744", end = "2745"',
+        'start = "2B50", end = "2B51"',
+        'start = "1F000", end = "1FB00"',
+        'font-family = "Symbols Nerd Font Mono"',
+    )
+    for pattern in required:
+        if pattern not in text:
+            raise SystemExit(f"{fonts.relative_to(ROOT)} missing {pattern}")
+    forbidden = (
+        'font-family = "Noto Emoji"',
+        'start = "2600", end = "2800"',
+        'start = "2B00", end = "2C00"',
+    )
+    for pattern in forbidden:
+        if pattern in text:
+            raise SystemExit(f"{fonts.relative_to(ROOT)} still contains {pattern}")
+
+    def mapped_family(codepoint: int) -> str | None:
+        for entry in symbol_map:
+            start = int(entry["start"], 16)
+            end = int(entry["end"], 16)
+            if start <= codepoint < end:
+                return entry["font-family"]
+        return None
+
+    color_emoji_codepoints = {
+        "cloud": 0x2601,
+        "coffee": 0x2615,
+        "lightning": 0x26A1,
+        "snowflake": 0x2744,
+        "star": 0x2B50,
+        "package": 0x1F4E6,
+        "snake": 0x1F40D,
+        "crab": 0x1F980,
+    }
+    for name, codepoint in color_emoji_codepoints.items():
+        family = mapped_family(codepoint)
+        if family != "Noto Color Emoji":
+            raise SystemExit(
+                f"{fonts.relative_to(ROOT)} maps {name} U+{codepoint:04X} "
+                f"to {family!r}, expected 'Noto Color Emoji'"
+            )
+    prompt_arrow = 0x276F
+    if mapped_family(prompt_arrow) == "Noto Color Emoji":
+        raise SystemExit(
+            f"{fonts.relative_to(ROOT)} maps prompt arrow U+276F to emoji"
+        )
+
+    pkg = ROOT / "pkgRio.nix"
+    pkg_text = pkg.read_text(encoding="utf-8")
+    if "noto-fonts-color-emoji" not in pkg_text:
+        raise SystemExit(f"{pkg.relative_to(ROOT)} does not package color emoji")
+    if "noto-fonts-monochrome-emoji" in pkg_text:
+        raise SystemExit(f"{pkg.relative_to(ROOT)} still packages monochrome emoji")
+    print(f"ok {fonts.relative_to(ROOT)}")
 
 
 def validate_package_metadata_sources() -> None:
