@@ -10,7 +10,7 @@ boundaries.
 | Upstream project | Rio |
 | Fork category | Experimental active fork |
 | Why this fork exists | Yazelix needs a Rust terminal it can evolve as a first-party runtime, with protocol coverage and runtime integration that Ghostty cannot expose to Yazelix directly |
-| Current Yazelix delta | `yazelix-terminal` and `yzxterm` package/profile names, desktop wrapper, package metadata passthru, generated profile templates, Rio trail defaults, `yazelix-cursors` shader support, BELL/terminal notification behavior, Kitty graphics support, and Ghostty-compatible shader ABI |
+| Current Yazelix delta | `yazelix-terminal` and `yzxterm` package/profile names, desktop wrapper, package metadata passthru, generated profile templates, Rio trail defaults, packaged emoji/Nerd Font glyph fallback, `yazelix-cursors` shader support, BELL/terminal notification behavior, Kitty graphics support, and Ghostty-compatible shader ABI |
 | Non-goals | This fork does not own the full Yazelix workspace, Zellij/Yazi/Helix integration policy, or compatibility shims in the main repo |
 | Standalone support | Supported for experimental users through the flake package and app outputs; normal Yazelix users consume it through main-repo runtime outputs |
 | Upstream sync cadence | Monthly while dogfooding, and before any yzxterm release-gate decision |
@@ -68,7 +68,9 @@ do not inherit Yazelix Terminal's private `RIO_CONFIG_HOME` or package loader
 paths, so plain host `rio` invocations keep using the user's host Rio defaults.
 The packaged config disables confirm-before-quit, disables native window
 decorations, sets the terminal font size to `18.0`, and uses the default event
-renderer strategy with WebGPU and Rio's native trail cursor effect.
+renderer strategy with WebGPU and Rio's native trail cursor effect. It also
+maps private-use icon glyphs to `Symbols Nerd Font Mono` and common emoji/status
+symbol ranges to `Noto Color Emoji` from the package closure.
 `YAZELIX_TERMINAL_PROFILE=baseline` selects the same packaged font, window, and
 WebGPU baseline without custom shaders or trail cursor effects for performance
 comparisons. `YAZELIX_TERMINAL_PROFILE=shaders` selects the packaged

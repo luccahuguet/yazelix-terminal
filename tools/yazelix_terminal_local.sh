@@ -123,6 +123,7 @@ repo_root="$(CDPATH= cd -- "$script_dir/.." && pwd)"
 state_root="${YAZELIX_TERMINAL_LOCAL_STATE:-$repo_root/target/yazelix-terminal-local}"
 font_dir="$repo_root/sugarloaf/src/font/resources/SymbolsNerdFontMono"
 shader_dir="$repo_root/misc/yazelix_terminal_shaders"
+font_template="$repo_root/misc/yazelix_terminal_fonts.toml"
 full_template="$repo_root/misc/yazelix_terminal_config.toml"
 baseline_template="$repo_root/misc/yazelix_terminal_config_baseline.toml"
 shader_template="$repo_root/misc/yazelix_terminal_config_shaders.toml"
@@ -172,11 +173,23 @@ write_resolved_config() {
   shader_dir_escaped="$(escape_sed_replacement "$shader_dir")"
 
   mkdir -p "$(dirname -- "$dst")"
+  while IFS= read -r yzt_config_line; do
+    if [ "$yzt_config_line" = "@yazelix_terminal_fonts@" ]; then
+      cat "$font_template"
+    else
+      printf '%s\n' "$yzt_config_line"
+    fi
+  done < "$src" >"$dst.template.tmp"
   sed \
     -e "s|@yazelix_terminal_font_dir@|$font_dir_escaped|g" \
     -e "s|@yazelix_terminal_emoji_font_dir@|$emoji_font_dir_escaped|g" \
     -e "s|@yazelix_terminal_shader_dir@|$shader_dir_escaped|g" \
-    "$src" >"$dst.tmp"
+    "$dst.template.tmp" >"$dst.tmp"
+  rm -f "$dst.template.tmp"
+  if grep -q "@yazelix_terminal_" "$dst.tmp"; then
+    rm -f "$dst.tmp"
+    die "unresolved Yazelix Terminal config placeholder in $src"
+  fi
   mv "$dst.tmp" "$dst"
   chmod 600 "$dst"
 }
@@ -185,6 +198,7 @@ prepare_local_configs() {
   [ -r "$full_template" ] || die "full config template is not readable: $full_template"
   [ -r "$baseline_template" ] || die "baseline config template is not readable: $baseline_template"
   [ -r "$shader_template" ] || die "shader config template is not readable: $shader_template"
+  [ -r "$font_template" ] || die "font config template is not readable: $font_template"
   [ -d "$font_dir" ] || die "local Symbols Nerd Font directory is missing: $font_dir"
   [ -r "$font_dir/SymbolsNerdFontMono-Regular.ttf" ] || die "local Symbols Nerd Font file is missing: $font_dir/SymbolsNerdFontMono-Regular.ttf"
   [ -d "$shader_dir" ] || die "local shader directory is missing: $shader_dir"

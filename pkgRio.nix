@@ -91,21 +91,47 @@ in
                          $out/share/yazelix-terminal/shaders/cursor_trail_dusk.glsl
         install -m 644 misc/yazelix_terminal_shaders/generated_effects/*.glsl \
                          $out/share/yazelix-terminal/shaders/generated_effects/
-        substitute misc/yazelix_terminal_config.toml \
-          $out/share/yazelix-terminal/config.toml \
-          --replace-fail "@yazelix_terminal_font_dir@" "$out/share/yazelix-terminal/fonts" \
-          --replace-fail "@yazelix_terminal_emoji_font_dir@" "${noto-fonts-color-emoji}/share/fonts/truetype"
+
+        render_yazelix_config() {
+          src="$1"
+          dst="$2"
+          tmp_with_fonts="$NIX_BUILD_TOP/$(basename "$dst").with-fonts"
+          tmp_resolved_fonts="$NIX_BUILD_TOP/$(basename "$dst").resolved-fonts"
+
+          while IFS= read -r line; do
+            if [ "$line" = "@yazelix_terminal_fonts@" ]; then
+              cat misc/yazelix_terminal_fonts.toml
+            else
+              printf '%s\n' "$line"
+            fi
+          done < "$src" > "$tmp_with_fonts"
+
+          substitute "$tmp_with_fonts" "$tmp_resolved_fonts" \
+            --replace-fail "@yazelix_terminal_font_dir@" "$out/share/yazelix-terminal/fonts" \
+            --replace-fail "@yazelix_terminal_emoji_font_dir@" "${noto-fonts-color-emoji}/share/fonts"
+
+          if grep -q "@yazelix_terminal_shader_dir@" "$tmp_resolved_fonts"; then
+            substitute "$tmp_resolved_fonts" "$dst" \
+              --replace-fail "@yazelix_terminal_shader_dir@" "$out/share/yazelix-terminal/shaders"
+          else
+            install -m 644 "$tmp_resolved_fonts" "$dst"
+          fi
+
+          chmod 644 "$dst"
+          if grep -q "@yazelix_terminal_" "$dst"; then
+            echo "unresolved Yazelix Terminal config placeholder in $dst" >&2
+            exit 1
+          fi
+        }
+
+        render_yazelix_config misc/yazelix_terminal_config.toml \
+          $out/share/yazelix-terminal/config.toml
         install -dm 755 $out/share/yazelix-terminal/baseline
-        substitute misc/yazelix_terminal_config_baseline.toml \
-          $out/share/yazelix-terminal/baseline/config.toml \
-          --replace-fail "@yazelix_terminal_font_dir@" "$out/share/yazelix-terminal/fonts" \
-          --replace-fail "@yazelix_terminal_emoji_font_dir@" "${noto-fonts-color-emoji}/share/fonts/truetype"
+        render_yazelix_config misc/yazelix_terminal_config_baseline.toml \
+          $out/share/yazelix-terminal/baseline/config.toml
         install -dm 755 $out/share/yazelix-terminal/profiles/shaders
-        substitute misc/yazelix_terminal_config_shaders.toml \
-          $out/share/yazelix-terminal/profiles/shaders/config.toml \
-          --replace-fail "@yazelix_terminal_font_dir@" "$out/share/yazelix-terminal/fonts" \
-          --replace-fail "@yazelix_terminal_emoji_font_dir@" "${noto-fonts-color-emoji}/share/fonts/truetype" \
-          --replace-fail "@yazelix_terminal_shader_dir@" "$out/share/yazelix-terminal/shaders"
+        render_yazelix_config misc/yazelix_terminal_config_shaders.toml \
+          $out/share/yazelix-terminal/profiles/shaders/config.toml
         printf '%s\n' '${builtins.toJSON yzxtermPackageMetadata}' > "$out/share/yazelix-terminal/package-metadata.json"
         chmod 644 "$out/share/yazelix-terminal/package-metadata.json"
 

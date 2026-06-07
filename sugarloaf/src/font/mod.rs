@@ -567,6 +567,22 @@ impl Default for FontLibraryData {
 
 impl FontLibraryData {
     #[inline]
+    fn symbol_map_match(&self, ch: char) -> Option<(usize, bool)> {
+        let symbol_maps = self.symbol_maps.as_ref()?;
+
+        for symbol_map in symbol_maps {
+            if symbol_map.range.contains(&ch) {
+                let is_emoji = self
+                    .try_get(&symbol_map.font_index)
+                    .map_or(false, |font| font.is_emoji);
+                return Some((symbol_map.font_index, is_emoji));
+            }
+        }
+
+        None
+    }
+
+    #[inline]
     pub fn find_best_font_match(
         &self,
         ch: char,
@@ -606,12 +622,8 @@ impl FontLibraryData {
         }
 
         // First check symbol map before lookup_for_font_match
-        if let Some(symbol_maps) = &self.symbol_maps {
-            for symbol_map in symbol_maps {
-                if symbol_map.range.contains(&ch) {
-                    return Some((symbol_map.font_index, false));
-                }
-            }
+        if let Some(found) = self.symbol_map_match(ch) {
+            return Some(found);
         }
 
         let italic = fragment_style.font_attrs.style() == Style::Italic;
@@ -669,12 +681,8 @@ impl FontLibraryData {
             return None;
         }
 
-        if let Some(symbol_maps) = &self.symbol_maps {
-            for symbol_map in symbol_maps {
-                if symbol_map.range.contains(&ch) {
-                    return Some((symbol_map.font_index, false));
-                }
-            }
+        if let Some(found) = self.symbol_map_match(ch) {
+            return Some(found);
         }
 
         let italic = fragment_style.font_attrs.style() == Style::Italic;
@@ -1827,6 +1835,35 @@ fn load_fallback_from_memory(slot: Slot) -> FontData {
     };
 
     FontData::from_static_slice_with_wght(data, wght).unwrap()
+}
+
+#[cfg(test)]
+mod symbol_map_tests {
+    use super::*;
+
+    #[test]
+    fn symbol_map_match_preserves_emoji_flag() {
+        let mut lib = FontLibraryData::default();
+        let mut emoji_font =
+            FontData::from_static_slice(constants::FONT_CASCADIA_CODE_NF)
+                .expect("load regular");
+        emoji_font.is_emoji = true;
+        lib.insert(emoji_font);
+        lib.symbol_maps = Some(vec![SymbolMap {
+            range: '\u{2600}'..'\u{2700}',
+            font_index: 0,
+        }]);
+
+        let style = SpanStyle::default();
+        assert_eq!(
+            lib.find_best_font_match('\u{2601}', &style, None),
+            Some((0, true))
+        );
+        assert_eq!(
+            lib.find_best_font_match_strict('\u{2601}', &style, None),
+            Some((0, true))
+        );
+    }
 }
 
 #[cfg(test)]
