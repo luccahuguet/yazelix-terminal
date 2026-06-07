@@ -10,7 +10,7 @@ Current behavior:
 - Rio native split keybindings are disabled through `navigation.use_split = false`
 - config-editor split opening is disabled through `navigation.open_config_with_split = false`
 - the native tab/island UI stays hidden for a single child through `hide_if_single = true`
-- the default Wayland app id / X11 class becomes `yazelix-terminal` unless explicitly overridden
+- the default Wayland app id / X11 class becomes `yazelix-terminal`; the desktop wrapper also honors `YAZELIX_TERMINAL_APP_ID` for parent-owned launcher identity
 - `TERM_PROGRAM` remains `rio` so child applications detect the Rio protocol surface
 - `YAZELIX_TERMINAL_HOST` becomes `yazelix-terminal` for fork-specific detection
 

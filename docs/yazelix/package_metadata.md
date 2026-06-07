@@ -31,6 +31,11 @@ main Yazelix consumption.
 | `wrapper_env` | Environment variables understood by the wrapper |
 | `main_yazelix_boundary` | Human-readable boundary reminder |
 
+`wrapper_env` currently advertises `profile`, `effects`, `config`, `app_id`,
+`render_strategy`, and `graphics_wrapper`. `app_id` lets an integrated parent
+runtime associate the terminal window with its own desktop entry while the
+standalone yzxterm package keeps `yazelix-terminal`.
+
 ## Release And Fast Distinction
 
 The normal package exposes:

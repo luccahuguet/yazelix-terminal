@@ -37,6 +37,7 @@ const YAZELIX_TERMINAL_LAUNCH_ONLY_ENV: &[&str] = &[
     "RIO_CONFIG_HOME",
     YAZELIX_TERMINAL_CHILD_ENV_SANITIZE,
     YAZELIX_TERMINAL_CONFIG,
+    "YAZELIX_TERMINAL_APP_ID",
     YAZELIX_TERMINAL_HOST_LD_LIBRARY_PATH,
     YAZELIX_TERMINAL_LD_LIBRARY_PATH_PREFIX,
     "YAZELIX_TERMINAL_GRAPHICS_WRAPPER",
@@ -1197,6 +1198,7 @@ mod tests {
             YAZELIX_TERMINAL_CHILD_ENV_SANITIZE,
             YAZELIX_TERMINAL_HOST_LD_LIBRARY_PATH,
             YAZELIX_TERMINAL_LD_LIBRARY_PATH_PREFIX,
+            "YAZELIX_TERMINAL_APP_ID",
             "YAZELIX_TERMINAL_GRAPHICS_WRAPPER",
             "YAZELIX_TERMINAL_RENDER_STRATEGY",
         ]);
@@ -1206,6 +1208,7 @@ mod tests {
         std::env::set_var(YAZELIX_TERMINAL_LD_LIBRARY_PATH_PREFIX, "/nix/lib");
         std::env::set_var("LD_LIBRARY_PATH", "/nix/lib:/other/nix/lib");
         std::env::set_var("RIO_CONFIG_HOME", "/tmp/yazelix-terminal-config");
+        std::env::set_var("YAZELIX_TERMINAL_APP_ID", "com.yazelix.Yazelix.Yzxterm");
         std::env::set_var("YAZELIX_TERMINAL_GRAPHICS_WRAPPER", "nixGL");
         std::env::set_var("YAZELIX_TERMINAL_RENDER_STRATEGY", "game");
 
@@ -1214,6 +1217,7 @@ mod tests {
 
         assert_env_removed(&command, "LD_LIBRARY_PATH");
         assert_env_removed(&command, "RIO_CONFIG_HOME");
+        assert_env_removed(&command, "YAZELIX_TERMINAL_APP_ID");
         assert_env_removed(&command, "YAZELIX_TERMINAL_GRAPHICS_WRAPPER");
         assert_env_removed(&command, "YAZELIX_TERMINAL_RENDER_STRATEGY");
         assert_env_removed(&command, YAZELIX_TERMINAL_HOST_LD_LIBRARY_PATH);

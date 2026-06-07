@@ -187,9 +187,10 @@ write_game_config() {
 
 configure_rio_config
 export YAZELIX_TERMINAL_HOST_LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}"
+app_id="${YAZELIX_TERMINAL_APP_ID:-yazelix-terminal}"
 
 if graphics_wrapper="$(find_graphics_wrapper)"; then
-  exec "$graphics_wrapper" "$binary" --app-id yazelix-terminal "$@"
+  exec "$graphics_wrapper" "$binary" --app-id "$app_id" "$@"
 fi
 
-exec "$binary" --app-id yazelix-terminal "$@"
+exec "$binary" --app-id "$app_id" "$@"

@@ -44,6 +44,7 @@
       profile = "YAZELIX_TERMINAL_PROFILE";
       effects = "YAZELIX_TERMINAL_EFFECTS";
       config = "YAZELIX_TERMINAL_CONFIG";
+      app_id = "YAZELIX_TERMINAL_APP_ID";
       render_strategy = "YAZELIX_TERMINAL_RENDER_STRATEGY";
       graphics_wrapper = "YAZELIX_TERMINAL_GRAPHICS_WRAPPER";
     };

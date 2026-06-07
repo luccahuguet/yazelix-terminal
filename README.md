@@ -59,13 +59,15 @@ The package installs:
 - `share/yazelix-terminal/profiles/shaders/config.toml`
 - `share/yazelix-terminal/package-metadata.json`
 
-The desktop wrapper sets `--app-id yazelix-terminal`, searches for available
-Nix graphics wrappers, and maps Yazelix-owned config directories into Rio's
-supported `RIO_CONFIG_HOME` contract only for the terminal process. It ignores
-ambient host `RIO_CONFIG_HOME`; use `YAZELIX_TERMINAL_CONFIG` for an explicit
-Yazelix Terminal config override. Child shells launched by the packaged wrapper
-do not inherit Yazelix Terminal's private `RIO_CONFIG_HOME` or package loader
-paths, so plain host `rio` invocations keep using the user's host Rio defaults.
+The desktop wrapper sets the standalone app id to `yazelix-terminal`, or uses
+`YAZELIX_TERMINAL_APP_ID` when a parent runtime needs the window to match its
+own desktop entry. It searches for available Nix graphics wrappers and maps
+Yazelix-owned config directories into Rio's supported `RIO_CONFIG_HOME`
+contract only for the terminal process. It ignores ambient host
+`RIO_CONFIG_HOME`; use `YAZELIX_TERMINAL_CONFIG` for an explicit Yazelix
+Terminal config override. Child shells launched by the packaged wrapper do not
+inherit Yazelix Terminal's private `RIO_CONFIG_HOME` or package loader paths,
+so plain host `rio` invocations keep using the user's host Rio defaults.
 The packaged config disables confirm-before-quit, disables native window
 decorations, sets the terminal font size to `18.0`, and uses the default event
 renderer strategy with WebGPU and Rio's native trail cursor effect. It also
@@ -88,6 +90,7 @@ Wrapper override knobs:
 | Variable | Behavior |
 | --- | --- |
 | `YAZELIX_TERMINAL_CONFIG` | Uses a custom Rio config directory; must contain readable `config.toml` |
+| `YAZELIX_TERMINAL_APP_ID` | Sets the Wayland app id / X11 class used by the wrapper; defaults to `yazelix-terminal` |
 | `YAZELIX_TERMINAL_PROFILE=full` | Uses the packaged WebGPU + Rio trail defaults |
 | `YAZELIX_TERMINAL_PROFILE=baseline` | Uses the packaged no-effects baseline config |
 | `YAZELIX_TERMINAL_PROFILE=shaders` | Uses the opt-in Ghostty-compatible shader profile |
