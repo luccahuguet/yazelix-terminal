@@ -361,19 +361,25 @@ fragment float4 grid_text_fragment(
     texture2d<float>    atlas_grayscale   [[texture(0)]],
     texture2d<float>    atlas_color       [[texture(1)]]
 ) {
-    constexpr sampler atlas_sampler(
+    constexpr sampler mask_sampler(
         coord::pixel,
         address::clamp_to_edge,
         filter::nearest
     );
+    constexpr sampler color_sampler(
+        coord::pixel,
+        address::clamp_to_edge,
+        filter::linear
+    );
 
     if (in.atlas == ATLAS_GRAYSCALE) {
  // Grayscale atlas: r channel is the alpha mask, multiply by color.
-        float a = atlas_grayscale.sample(atlas_sampler, in.tex_coord).r;
+        float a = atlas_grayscale.sample(mask_sampler, in.tex_coord).r;
         return in.color * a;
     } else {
- // Color atlas: pre-multiplied RGBA directly.
-        return atlas_color.sample(atlas_sampler, in.tex_coord);
+ // Color atlas: pre-multiplied RGBA directly. Linear filtering keeps
+ // color emoji smooth when their bitmap strike is scaled to grid cells.
+        return atlas_color.sample(color_sampler, in.tex_coord);
     }
 }
 

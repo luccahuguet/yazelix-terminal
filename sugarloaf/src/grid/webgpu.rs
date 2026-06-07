@@ -198,6 +198,8 @@ pub struct WgpuGridRenderer {
     text_uniform_bg: wgpu::BindGroup,
     #[allow(dead_code)]
     text_atlas_bgl: wgpu::BindGroupLayout,
+    #[allow(dead_code)]
+    text_color_sampler: wgpu::Sampler,
     text_atlas_bg: wgpu::BindGroup,
     text_pipeline: wgpu::RenderPipeline,
 
@@ -245,11 +247,13 @@ impl WgpuGridRenderer {
         let text_uniform_bg =
             create_text_uniform_bg(&device, &text_uniform_bgl, &uniform_buffer);
         let text_atlas_bgl = create_text_atlas_bgl(&device);
+        let text_color_sampler = create_text_color_sampler(&device);
         let text_atlas_bg = create_text_atlas_bg(
             &device,
             &text_atlas_bgl,
             atlas_grayscale.view(),
             atlas_color.view(),
+            &text_color_sampler,
         );
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -288,6 +292,7 @@ impl WgpuGridRenderer {
             text_uniform_bgl,
             text_uniform_bg,
             text_atlas_bgl,
+            text_color_sampler,
             text_atlas_bg,
             text_pipeline,
             atlas_grayscale,
@@ -647,13 +652,32 @@ fn create_text_atlas_bgl(device: &wgpu::Device) -> wgpu::BindGroupLayout {
                 binding: 1,
                 visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
                     view_dimension: wgpu::TextureViewDimension::D2,
                     multisampled: false,
                 },
                 count: None,
             },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
         ],
+    })
+}
+
+fn create_text_color_sampler(device: &wgpu::Device) -> wgpu::Sampler {
+    device.create_sampler(&wgpu::SamplerDescriptor {
+        label: Some("grid.text_color_sampler"),
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+        ..Default::default()
     })
 }
 
@@ -662,6 +686,7 @@ fn create_text_atlas_bg(
     layout: &wgpu::BindGroupLayout,
     grayscale: &wgpu::TextureView,
     color: &wgpu::TextureView,
+    color_sampler: &wgpu::Sampler,
 ) -> wgpu::BindGroup {
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("grid.text_atlas_bg"),
@@ -674,6 +699,10 @@ fn create_text_atlas_bg(
             wgpu::BindGroupEntry {
                 binding: 1,
                 resource: wgpu::BindingResource::TextureView(color),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::Sampler(color_sampler),
             },
         ],
     })

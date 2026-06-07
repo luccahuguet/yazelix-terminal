@@ -1521,14 +1521,12 @@ fn create_pipeline_layout(
 }
 
 fn create_sampler(device: &ash::Device) -> vk::Sampler {
-    // Nearest filter + clamp-to-edge — matches Metal's
-    // `filter::nearest, address::clamp_to_edge`. Not used for
-    // sampling per se (we use `texelFetch` in the fragment shader),
-    // but the COMBINED_IMAGE_SAMPLER descriptor still requires a
-    // sampler object.
+    // Linear filter + clamp-to-edge. Grayscale text masks still use
+    // `texelFetch` in the fragment shader so this does not blur normal
+    // glyphs; color emoji use `texture()` and get filtered sampling.
     let info = vk::SamplerCreateInfo::default()
-        .mag_filter(vk::Filter::NEAREST)
-        .min_filter(vk::Filter::NEAREST)
+        .mag_filter(vk::Filter::LINEAR)
+        .min_filter(vk::Filter::LINEAR)
         .mipmap_mode(vk::SamplerMipmapMode::NEAREST)
         .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
         .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)

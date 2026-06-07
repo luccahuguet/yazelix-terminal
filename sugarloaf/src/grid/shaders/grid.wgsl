@@ -262,10 +262,12 @@ struct TextVsOut {
 
 // Atlases. Group(1) keeps them separate from the bg bind group so
 // the bg pipeline (which doesn't need atlases) uses a smaller bind
-// group layout. We use `textureLoad` (no sampler) to match Metal's
-// `coord::pixel + filter::nearest` — integer pixel fetch.
+// group layout. Grayscale glyph masks use `textureLoad` for exact
+// terminal-text edges; color emoji use a linear sampler so scaled
+// bitmap/COLR glyphs do not render as jagged nearest-neighbour art.
 @group(1) @binding(0) var atlas_grayscale: texture_2d<f32>;
 @group(1) @binding(1) var atlas_color:     texture_2d<f32>;
+@group(1) @binding(2) var atlas_color_sampler: sampler;
 
 @vertex
 fn grid_text_vertex(
@@ -346,13 +348,15 @@ fn grid_text_vertex(
 
 @fragment
 fn grid_text_fragment(in: TextVsOut) -> @location(0) vec4<f32> {
- // Pixel-space tex_coord → integer sample via textureLoad (no
- // sampler filter; matches Metal's `coord::pixel` + `filter::nearest`).
+ // Pixel-space tex_coord → integer sample via textureLoad for
+ // grayscale masks. Color emoji are sampled with linear filtering.
     let ic = vec2<i32>(in.tex_coord);
     if (in.atlas == ATLAS_GRAYSCALE) {
         let a = textureLoad(atlas_grayscale, ic, 0).r;
         return in.color * a;
     } else {
-        return textureLoad(atlas_color, ic, 0);
+        let dims = vec2<f32>(textureDimensions(atlas_color));
+        let uv = in.tex_coord / dims;
+        return textureSample(atlas_color, atlas_color_sampler, uv);
     }
 }

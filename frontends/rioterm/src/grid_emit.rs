@@ -1524,6 +1524,8 @@ fn size_bucket_for(size_px: f32) -> u16 {
     (size_px * 4.0).round().clamp(0.0, u16::MAX as f32) as u16
 }
 
+const EMOJI_GRID_VISUAL_SCALE: f32 = 0.90;
+
 #[inline]
 fn grid_glyph_font_size(
     base_size_px: f32,
@@ -1534,9 +1536,10 @@ fn grid_glyph_font_size(
     if is_emoji {
         // Emoji are laid out as wide glyphs, so give color fonts the
         // reserved two-cell/sized-text box instead of rasterizing them
-        // at the smaller text point size. Keep the result bounded by
-        // the visual box so it does not bleed into following cells.
-        font_size_u16(max_w.min(max_h).max(base_size_px))
+        // at the smaller text point size. Keep a small inset inside
+        // that visual box so color bitmap fonts match Ghostty/WezTerm
+        // density instead of touching the row edges.
+        font_size_u16(max_w.min(max_h) * EMOJI_GRID_VISUAL_SCALE)
     } else {
         font_size_u16(base_size_px)
     }
@@ -2759,6 +2762,16 @@ struct RawGlyph {
     bytes: Vec<u8>,
 }
 
+#[cfg(not(target_os = "macos"))]
+fn premultiply_rgba_in_place(bytes: &mut [u8]) {
+    for px in bytes.chunks_exact_mut(4) {
+        let a = px[3] as u16;
+        px[0] = ((px[0] as u16 * a + 127) / 255) as u8;
+        px[1] = ((px[1] as u16 * a + 127) / 255) as u8;
+        px[2] = ((px[2] as u16 * a + 127) / 255) as u8;
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn rasterize_glyph_native(
     rasterizer: &mut GridGlyphRasterizer,
@@ -2849,6 +2862,9 @@ fn rasterize_glyph_native(
         return None;
     }
     let is_color = image.content == Content::Color;
+    if is_color {
+        premultiply_rgba_in_place(&mut image.data);
+    }
     Some(RawGlyph {
         width: image.placement.width,
         height: image.placement.height,
@@ -2968,12 +2984,12 @@ mod tests {
     }
 
     #[test]
-    // Defends: color emoji get the wide-cell pixel budget instead of the smaller text point size.
+    // Defends: color emoji get a padded wide-cell pixel budget instead of the smaller text point size.
     fn emoji_grid_font_size_uses_reserved_visual_box() {
         assert_eq!(grid_glyph_font_size(18.0, 22.0, 28.0, false), 18);
-        assert_eq!(grid_glyph_font_size(18.0, 22.0, 28.0, true), 22);
-        assert_eq!(grid_glyph_font_size(18.0, 40.0, 26.0, true), 26);
-        assert_eq!(grid_glyph_font_size(30.0, 22.0, 26.0, true), 30);
+        assert_eq!(grid_glyph_font_size(18.0, 22.0, 28.0, true), 20);
+        assert_eq!(grid_glyph_font_size(18.0, 40.0, 26.0, true), 23);
+        assert_eq!(grid_glyph_font_size(30.0, 22.0, 26.0, true), 20);
     }
 
     #[test]
@@ -3058,6 +3074,28 @@ mod tests {
         );
 
         assert_ne!(hash_for(plain, &extras), hash_for(emoji, &extras));
+    }
+
+    #[test]
+    #[cfg(not(target_os = "macos"))]
+    // Defends: Swash straight-RGBA color glyphs match the grid atlas premultiplied blend contract.
+    fn swash_color_glyph_bytes_are_premultiplied_for_grid_atlas() {
+        let mut bytes = vec![
+            200, 100, 50, 128, //
+            10, 20, 30, 255, //
+            255, 128, 64, 0,
+        ];
+
+        premultiply_rgba_in_place(&mut bytes);
+
+        assert_eq!(
+            bytes,
+            vec![
+                100, 50, 25, 128, //
+                10, 20, 30, 255, //
+                0, 0, 0, 0,
+            ]
+        );
     }
 
     #[test]
