@@ -43,6 +43,10 @@ pub struct Mouse {
     /// within the same cell — replaces the old pixel-equality check
     /// that fired on every subpixel HiDPI jitter.
     pub last_cell: Option<Pos>,
+    /// A left-button press was swallowed because it targeted an activatable
+    /// link. The matching release must not leak to mouse-reporting apps if
+    /// the pointer leaves the link before release.
+    pub hint_click_pending: bool,
 }
 
 impl Default for Mouse {
@@ -64,6 +68,7 @@ impl Default for Mouse {
             y: 0.0,
             raw_y: 0.0,
             last_cell: None,
+            hint_click_pending: false,
         }
     }
 }

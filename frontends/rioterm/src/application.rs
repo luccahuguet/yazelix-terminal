@@ -1220,6 +1220,22 @@ impl ApplicationHandler<EventPayload> for Application<'_> {
 
             WindowEvent::ModifiersChanged(modifiers) => {
                 route.window.screen.set_modifiers(modifiers);
+
+                if route.path == RoutePath::Terminal {
+                    let hint_changed = route.window.screen.update_highlighted_hints();
+                    let cursor_icon = if route.window.screen.highlighted_hint_is_active()
+                    {
+                        CursorIcon::Pointer
+                    } else {
+                        route.window.screen.preferred_mouse_cursor_icon()
+                    };
+                    route.window.winit_window.set_cursor(cursor_icon);
+
+                    if hint_changed {
+                        route.window.screen.context_manager.request_render();
+                        route.request_redraw();
+                    }
+                }
             }
 
             WindowEvent::MouseInput { state, button, .. } => {
@@ -1360,6 +1376,17 @@ impl ApplicationHandler<EventPayload> for Application<'_> {
                         // of mouse mode (e.g. neovim capturing clicks).
                         if route.window.screen.select_current_based_on_mouse() {
                             route.request_redraw();
+                        } else if button == MouseButton::Left
+                            && route.window.screen.has_hint_at_mouse()
+                        {
+                            // Ctrl/Cmd link activation happens on release.
+                            // Swallow the press so it does not start a
+                            // selection or leak a partial click to mouse-mode
+                            // terminal apps.
+                            route.window.screen.mouse.click_state = ClickState::None;
+                            route.window.screen.mouse.hint_click_pending = true;
+                            route.request_redraw();
+                            return;
                         } else if !route.window.screen.modifiers.state().shift_key()
                             && route.window.screen.mouse_mode()
                         {
@@ -1433,6 +1460,24 @@ impl ApplicationHandler<EventPayload> for Application<'_> {
                             return;
                         }
 
+                        if button == MouseButton::Left
+                            && route.window.screen.mouse.hint_click_pending
+                        {
+                            if route
+                                .window
+                                .screen
+                                .trigger_hint_at_mouse(&mut self.router.clipboard)
+                            {
+                                route.request_redraw();
+                                return;
+                            }
+
+                            route.window.screen.mouse.hint_click_pending = false;
+                            route.window.screen.mouse.click_state = ClickState::None;
+                            route.request_redraw();
+                            return;
+                        }
+
                         if !route.window.screen.modifiers.state().shift_key()
                             && route.window.screen.mouse_mode()
                         {
@@ -1449,16 +1494,6 @@ impl ApplicationHandler<EventPayload> for Application<'_> {
                                 .window
                                 .screen
                                 .mouse_report(code, ElementState::Released);
-                            return;
-                        }
-
-                        // Trigger hints highlighted by the mouse
-                        if button == MouseButton::Left
-                            && route
-                                .window
-                                .screen
-                                .trigger_hint(&mut self.router.clipboard)
-                        {
                             return;
                         }
 
@@ -1728,12 +1763,21 @@ impl ApplicationHandler<EventPayload> for Application<'_> {
                     && (route.window.screen.modifiers.state().shift_key()
                         || !route.window.screen.mouse_mode());
 
-                if !is_selecting && route.window.screen.update_highlighted_hints() {
+                let hint_changed =
+                    !is_selecting && route.window.screen.update_highlighted_hints();
+                let hint_active = route.window.screen.highlighted_hint_is_active();
+                if !is_selecting && hint_active {
                     route.window.winit_window.set_cursor(CursorIcon::Pointer);
-                    route.window.screen.context_manager.request_render();
+                    if hint_changed {
+                        route.window.screen.context_manager.request_render();
+                    }
                 } else if !is_selecting {
                     let cursor_icon = route.window.screen.preferred_mouse_cursor_icon();
                     route.window.winit_window.set_cursor(cursor_icon);
+
+                    if hint_changed {
+                        route.window.screen.context_manager.request_render();
+                    }
 
                     // In case hyperlink range has cleaned trigger one more render
                     if route

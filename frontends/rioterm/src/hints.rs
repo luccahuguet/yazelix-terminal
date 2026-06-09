@@ -526,6 +526,7 @@ fn post_process_hyperlink_uri(uri: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    // Test lane: default
     use super::*;
     use rio_backend::config::hints::{HintAction, HintInternalAction};
 
@@ -694,6 +695,19 @@ mod tests {
         assert!(resolve_path_for_opening("mailto:a@b.c", None).is_none());
         assert!(resolve_path_for_opening("file:///tmp", None).is_none());
         assert!(resolve_path_for_opening("ssh://host/path", None).is_none());
+    }
+
+    // Defends: URL opening trims punctuation that belongs to surrounding prose.
+    #[test]
+    fn test_post_process_hyperlink_uri_trims_surrounding_punctuation() {
+        assert_eq!(
+            post_process_hyperlink_uri("http://localhost:3000/path)."),
+            "http://localhost:3000/path"
+        );
+        assert_eq!(
+            post_process_hyperlink_uri("https://example.com/docs,"),
+            "https://example.com/docs"
+        );
     }
 
     #[test]

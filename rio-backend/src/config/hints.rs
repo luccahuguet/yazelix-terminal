@@ -164,7 +164,7 @@ impl Default for HintMouse {
         let default_mods = vec!["Super".to_string()];
 
         #[cfg(not(target_os = "macos"))]
-        let default_mods = vec!["Alt".to_string()];
+        let default_mods = vec!["Control".to_string()];
 
         Self {
             enabled: true,
@@ -235,8 +235,10 @@ fn default_bool_false() -> bool {
 
 #[cfg(test)]
 mod tests {
+    // Test lane: default
     use super::*;
 
+    // Defends: default link hints use the expected platform activation modifier.
     #[test]
     fn test_hints_default() {
         let hints = Hints::default();
@@ -248,6 +250,12 @@ mod tests {
         assert!(default_hint.hyperlinks);
         assert!(default_hint.post_processing);
         assert!(!default_hint.persist);
+
+        #[cfg(target_os = "macos")]
+        assert_eq!(default_hint.mouse.mods, vec!["Super"]);
+
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(default_hint.mouse.mods, vec!["Control"]);
     }
 
     #[test]
@@ -336,6 +344,10 @@ mod tests {
         assert_eq!(
             find_all("see https://example.com."),
             vec!["https://example.com"],
+        );
+        assert_eq!(
+            find_all("serve http://localhost:3000/path)."),
+            vec!["http://localhost:3000/path"],
         );
     }
 

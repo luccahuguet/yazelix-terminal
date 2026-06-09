@@ -121,7 +121,13 @@ the terminal owns modern rendering and terminal protocols. In host mode:
 
 Kitty graphics, Sixel, iTerm2 images, OSC 133, OSC 66, OSC 99, OSC 52, Kitty
 keyboard, Kitty multiple cursors, Kitty file transfer, OSC 5522 text clipboard,
-unscrolling, and DECCARA coverage are tracked in the verification ledger.
+unscrolling, clickable plain URLs, OSC 8 hyperlinks, and DECCARA coverage are
+tracked in the verification ledger.
+
+Plain URLs and OSC 8 hyperlinks open with Ctrl-click on Linux and Windows, or
+Command-click on macOS. The terminal swallows the matching mouse press only
+when it starts on an activatable link, so normal selection and mouse reporting
+stay unchanged outside that gesture
 
 Yazi image and PDF previews use Kitty graphics through the terminal image
 overlay path. The renderer image-overlay ABI is `[u0, v0, width, height]`

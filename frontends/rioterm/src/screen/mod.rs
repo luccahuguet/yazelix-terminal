@@ -607,6 +607,7 @@ impl Screen<'_> {
     #[inline]
     pub fn reset_mouse(&mut self) {
         self.mouse.accumulated_scroll = crate::mouse::AccumulatedScroll::default();
+        self.mouse.hint_click_pending = false;
     }
 
     #[inline]
@@ -2218,6 +2219,15 @@ impl Screen<'_> {
         }
     }
 
+    #[inline]
+    pub fn highlighted_hint_is_active(&self) -> bool {
+        self.context_manager
+            .current()
+            .renderable_content
+            .highlighted_hint
+            .is_some()
+    }
+
     /// Check if current modifiers match the required modifiers
     fn modifiers_match(&self, required_mods: &[String]) -> bool {
         if required_mods.is_empty() {
@@ -2339,9 +2349,7 @@ impl Screen<'_> {
             post_processing: true,
             persist: false,
             action: rio_backend::config::hints::HintAction::Command {
-                command: rio_backend::config::hints::HintCommand::Simple(
-                    "xdg-open".to_string(),
-                ),
+                command: Self::default_open_hint_command(),
             },
             mouse: rio_backend::config::hints::HintMouse::default(),
             binding: None,
@@ -2358,6 +2366,20 @@ impl Screen<'_> {
             end: rio_backend::crosswords::pos::Pos::new(point.row, end_col),
             hint: hint_config,
         })
+    }
+
+    fn default_open_hint_command() -> rio_backend::config::hints::HintCommand {
+        #[cfg(not(any(target_os = "macos", windows)))]
+        return rio_backend::config::hints::HintCommand::Simple("xdg-open".to_string());
+
+        #[cfg(target_os = "macos")]
+        return rio_backend::config::hints::HintCommand::Simple("open".to_string());
+
+        #[cfg(windows)]
+        return rio_backend::config::hints::HintCommand::WithArgs {
+            program: "cmd".to_string(),
+            args: vec!["/c".to_string(), "start".to_string(), "".to_string()],
+        };
     }
 
     /// Find regex match at the specified point
@@ -2466,23 +2488,36 @@ impl Screen<'_> {
         false
     }
 
-    /// Trigger hint action at mouse position
     #[inline]
-    pub fn trigger_hint(&mut self, clipboard: &mut Clipboard) -> bool {
-        // Take the highlighted hint
-        let hint_match = self
-            .context_manager
+    fn hint_at_mouse(&self) -> Option<crate::hints::HintMatch> {
+        let terminal = self.context_manager.current().terminal.lock();
+        let display_offset = terminal.display_offset();
+        let point = self.mouse_position(display_offset);
+        let hint_match =
+            self.find_hint_at_point(&*terminal, point, self.modifiers.state());
+        drop(terminal);
+        hint_match
+    }
+
+    #[inline]
+    pub fn has_hint_at_mouse(&self) -> bool {
+        self.hint_at_mouse().is_some()
+    }
+
+    #[inline]
+    pub fn trigger_hint_at_mouse(&mut self, clipboard: &mut Clipboard) -> bool {
+        let Some(hint_match) = self.hint_at_mouse() else {
+            return false;
+        };
+
+        self.context_manager
             .current_mut()
             .renderable_content
-            .highlighted_hint
-            .take();
-
-        if let Some(hint_match) = hint_match {
-            self.execute_hint_action(&hint_match, clipboard);
-            true
-        } else {
-            false
-        }
+            .highlighted_hint = None;
+        self.mouse.click_state = ClickState::None;
+        self.mouse.hint_click_pending = false;
+        self.execute_hint_action(&hint_match, clipboard);
+        true
     }
 
     fn open_hyperlink(&self, hyperlink: Hyperlink) {
