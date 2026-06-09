@@ -4825,11 +4825,12 @@ impl Screen<'_> {
         // doing so turns shader/trail/progress animation into an immediate
         // dirty-after redraw loop in event mode.
 
-        // In case the configuration of blinking cursor is enabled
-        // and the terminal also have instructions of blinking enabled
+        // Schedule cursor blink frames whenever the effective render state
+        // wants blinking. Configured blinking acts as a readability default;
+        // terminal escape state can also request blinking when config leaves
+        // it off.
         // TODO: enable blinking for selection after adding debounce (https://github.com/raphamorim/rio/issues/437)
-        if self.renderer.config_has_blinking_enabled
-            && self.selection_is_empty()
+        if self.selection_is_empty()
             && self
                 .context_manager
                 .current()

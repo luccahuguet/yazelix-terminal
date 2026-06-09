@@ -48,6 +48,11 @@ fn window_bg_alpha(config: &Config) -> f32 {
     }
 }
 
+#[inline]
+fn effective_cursor_blinking(config_blinking: bool, terminal_blinking: bool) -> bool {
+    config_blinking || terminal_blinking
+}
+
 #[cfg(test)]
 mod tests {
     // Test lane: default
@@ -71,6 +76,20 @@ mod tests {
         assert!((color.g - 0.2).abs() < 0.000001);
         assert!((color.b - 0.3).abs() < 0.000001);
         assert!((color.a - 0.42).abs() < 0.000001);
+    }
+
+    #[test]
+    // Defends: packaged cursor blinking remains effective even if an app selects a steady cursor style.
+    fn configured_cursor_blink_forces_effective_blinking() {
+        assert!(effective_cursor_blinking(true, false));
+        assert!(effective_cursor_blinking(true, true));
+    }
+
+    #[test]
+    // Defends: app-requested blinking still works when the user did not configure blinking as the default.
+    fn terminal_cursor_blink_state_can_enable_effective_blinking() {
+        assert!(effective_cursor_blinking(false, true));
+        assert!(!effective_cursor_blinking(false, false));
     }
 }
 
@@ -584,10 +603,12 @@ impl Renderer {
                 sugarloaf.clear_image_overlays_for(context.rich_text_id);
             }
 
-            context.renderable_content.has_blinking_enabled =
-                context.renderable_content.blinking_cursor;
+            context.renderable_content.has_blinking_enabled = effective_cursor_blinking(
+                self.config_has_blinking_enabled,
+                context.renderable_content.blinking_cursor,
+            );
 
-            if context.renderable_content.blinking_cursor {
+            if context.renderable_content.has_blinking_enabled {
                 let has_selection = context.renderable_content.selection_range.is_some();
                 if !has_selection {
                     let mut should_blink = true;
