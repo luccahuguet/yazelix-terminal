@@ -157,6 +157,7 @@
               share/yazelix-terminal/emoji/serenityos/config.toml \
               share/yazelix-terminal/emoji/serenityos/baseline/config.toml \
               share/yazelix-terminal/emoji/serenityos/profiles/shaders/config.toml \
+              share/yazelix-terminal/fonts/NotoSansSymbols2-Regular.otf \
               share/yazelix-terminal/package-metadata.json
             do
               if [ ! -f "$package/$path" ]; then

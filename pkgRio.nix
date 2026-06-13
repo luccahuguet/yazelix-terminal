@@ -3,6 +3,7 @@
   stdenv,
   makeWrapper,
   ncurses,
+  noto-fonts,
   noto-fonts-color-emoji,
   serenityos-emoji-font,
   twitter-color-emoji,
@@ -134,6 +135,8 @@ in
                           $out/share/icons/hicolor/scalable/apps/yazelix-terminal.svg
         install -D -m 644 sugarloaf/src/font/resources/SymbolsNerdFontMono/SymbolsNerdFontMono-Regular.ttf \
                           $out/share/yazelix-terminal/fonts/SymbolsNerdFontMono-Regular.ttf
+        install -D -m 644 ${noto-fonts}/share/fonts/noto/NotoSansSymbols2-Regular.otf \
+                          $out/share/yazelix-terminal/fonts/NotoSansSymbols2-Regular.otf
         install -dm 755 $out/share/yazelix-terminal/shaders/generated_effects
         install -m 644 misc/yazelix_terminal_shaders/cursor_trail_dusk.glsl \
                          $out/share/yazelix-terminal/shaders/cursor_trail_dusk.glsl

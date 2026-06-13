@@ -73,11 +73,11 @@ so plain host `rio` invocations keep using the user's host Rio defaults.
 The packaged config disables confirm-before-quit, disables native window
 decorations, sets the terminal font size to `18.0`, and uses the default event
 renderer strategy with WebGPU, Rio's native trail cursor effect, and a readable
-650 ms cursor blink. It also
-maps private-use icon glyphs to `Symbols Nerd Font Mono` and common emoji/status
-symbol ranges to the selected packaged emoji fallback. `noto` remains the
-default, while `twitter` and `serenityos` provide free alternate emoji font
-presets for visual dogfooding.
+650 ms cursor blink. It also maps private-use icon glyphs to
+`Symbols Nerd Font Mono`, selected text-style status symbols to packaged
+`Noto Sans Symbols 2`, and common emoji/status symbol ranges to the selected
+packaged emoji fallback. `noto` remains the default, while `twitter` and
+`serenityos` provide free alternate emoji font presets for visual dogfooding.
 `YAZELIX_TERMINAL_PROFILE=baseline` selects the same packaged font, window, and
 WebGPU baseline without custom shaders or trail cursor effects for performance
 comparisons, while keeping the same cursor blink policy.

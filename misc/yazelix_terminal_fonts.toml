@@ -8,6 +8,8 @@ additional-dirs = [
 symbol-map = [
   { start = "E000", end = "F900", font-family = "Symbols Nerd Font Mono" },
   { start = "F0001", end = "F1AF1", font-family = "Symbols Nerd Font Mono" },
+  { start = "1F5B5", end = "1F5B6", font-family = "Noto Sans Symbols 2" },
+  { start = "1F5B9", end = "1F5BA", font-family = "Noto Sans Symbols 2" },
   { start = "231A", end = "231C", font-family = "@yazelix_terminal_emoji_font_family@" },
   { start = "2328", end = "2329", font-family = "@yazelix_terminal_emoji_font_family@" },
   { start = "23CF", end = "23D0", font-family = "@yazelix_terminal_emoji_font_family@" },
