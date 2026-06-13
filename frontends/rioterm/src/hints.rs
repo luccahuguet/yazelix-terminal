@@ -290,6 +290,16 @@ impl HintState {
                 {
                     end_col += 1;
                 }
+                let end_pos = Column(end_col - 1);
+                let Some(trimmed_end_col) = trim_trailing_link_blank_cells(
+                    term,
+                    line,
+                    Column(start_col),
+                    end_pos,
+                ) else {
+                    col = end_col;
+                    continue;
+                };
 
                 // Look up the URI once for the whole span.
                 if let Some(hyperlink) = term.cell_hyperlink(line, Column(start_col)) {
@@ -300,7 +310,7 @@ impl HintState {
                     self.matches.push(HintMatch {
                         text: uri,
                         start: Pos::new(line, Column(start_col)),
-                        end: Pos::new(line, Column(end_col - 1)),
+                        end: Pos::new(line, trimmed_end_col),
                         hint: hint.clone(),
                     });
                 }
@@ -333,6 +343,36 @@ impl HintState {
         for _ in 0..self.matches.len() {
             self.labels.push(generator.next());
         }
+    }
+}
+
+#[inline]
+fn is_trailing_link_blank(c: char) -> bool {
+    c == '\0' || c.is_whitespace()
+}
+
+/// Clip a hyperlink/hint span so terminal padding or app-written trailing
+/// spaces do not become a visible underline tail or click target.
+pub(crate) fn trim_trailing_link_blank_cells<T: EventListener>(
+    term: &rio_backend::crosswords::Crosswords<T>,
+    line: Line,
+    start_col: Column,
+    end_col: Column,
+) -> Option<Column> {
+    if end_col < start_col {
+        return None;
+    }
+
+    let mut col = end_col;
+    loop {
+        let c = term.grid[line][col].c();
+        if !is_trailing_link_blank(c) {
+            return Some(col);
+        }
+        if col == start_col {
+            return None;
+        }
+        col -= 1;
     }
 }
 
@@ -695,6 +735,55 @@ mod tests {
         assert!(resolve_path_for_opening("mailto:a@b.c", None).is_none());
         assert!(resolve_path_for_opening("file:///tmp", None).is_none());
         assert!(resolve_path_for_opening("ssh://host/path", None).is_none());
+    }
+
+    #[test]
+    // Defends: OSC8 URL hover/click affordances do not extend into app-written trailing blanks.
+    fn test_hyperlink_hint_trims_trailing_blank_cells() {
+        use rio_backend::ansi::CursorShape;
+        use rio_backend::crosswords::{Crosswords, CrosswordsSize};
+        use rio_backend::event::{VoidListener, WindowId};
+        use rio_backend::performer::handler::Processor;
+
+        let url = "http://localhost:4321/";
+        let label = format!("{url}   ");
+        let bytes = format!("\x1b]8;;{url}\x07{label}\x1b]8;;\x07");
+        let window_id = WindowId::from(0);
+        let mut term = Crosswords::new(
+            CrosswordsSize::new(40, 3),
+            CursorShape::Block,
+            VoidListener {},
+            window_id,
+            0,
+            10_000,
+        );
+        let mut processor = Processor::default();
+        processor.advance(&mut term, bytes.as_bytes());
+
+        let hint = Rc::new(Hint {
+            regex: None,
+            hyperlinks: true,
+            post_processing: true,
+            persist: false,
+            action: HintAction::Action {
+                action: HintInternalAction::Copy,
+            },
+            mouse: Default::default(),
+            binding: None,
+        });
+        let mut state = HintState::new("abc".to_string());
+
+        state.find_hyperlink_matches(&term, hint);
+
+        assert_eq!(state.matches.len(), 1);
+        let hint_match = &state.matches[0];
+        assert_eq!(hint_match.text, url);
+        assert_eq!(hint_match.start, Pos::new(Line(0), Column(0)));
+        assert_eq!(
+            hint_match.end,
+            Pos::new(Line(0), Column(url.len().saturating_sub(1)))
+        );
+        assert!(term.cell_hyperlink_id(Line(0), Column(url.len())).is_some());
     }
 
     // Defends: URL opening trims punctuation that belongs to surrounding prose.

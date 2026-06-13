@@ -24,7 +24,7 @@ use crate::crosswords::{
     vi_mode::ViMotion,
     Mode,
 };
-use crate::hints::HintState;
+use crate::hints::{trim_trailing_link_blank_cells, HintState};
 use crate::layout::ContextDimension;
 use crate::mouse::{calculate_mouse_position, Mouse};
 use crate::renderer::{utils::padding_top_from_config, Renderer};
@@ -2337,6 +2337,11 @@ impl Screen<'_> {
                 break;
             }
         }
+        let trimmed_end_col =
+            trim_trailing_link_blank_cells(terminal, point.row, start_col, end_col)?;
+        if point.col > trimmed_end_col {
+            return None;
+        }
 
         let hyperlink = terminal.cell_hyperlink(point.row, point.col)?;
 
@@ -2363,7 +2368,7 @@ impl Screen<'_> {
         Some(crate::hints::HintMatch {
             text: uri,
             start: rio_backend::crosswords::pos::Pos::new(point.row, start_col),
-            end: rio_backend::crosswords::pos::Pos::new(point.row, end_col),
+            end: rio_backend::crosswords::pos::Pos::new(point.row, trimmed_end_col),
             hint: hint_config,
         })
     }
@@ -2410,24 +2415,37 @@ impl Screen<'_> {
         for (start, end) in regex.find_iter(line_text) {
             let start_col = rio_backend::crosswords::pos::Column(start);
             let end_col = rio_backend::crosswords::pos::Column(end.saturating_sub(1));
+            if point.col < start_col || point.col > end_col {
+                continue;
+            }
 
-            // Check if the point is within this match
-            if point.col >= start_col && point.col <= end_col {
+            // Apply grid-based post-processing before hit testing the final
+            // activatable range. Raw regex matches can include surrounding
+            // punctuation; those cells must not become hover/click targets.
+            let (processed_start, processed_end) = if hint_config.post_processing {
+                self.hint_post_processing(
+                    terminal,
+                    start_col,
+                    end_col,
+                    rio_backend::crosswords::pos::Line(point.row.0),
+                )
+                .unwrap_or((start_col, end_col))
+            } else {
+                (start_col, end_col)
+            };
+            let Some(processed_end) = trim_trailing_link_blank_cells(
+                terminal,
+                point.row,
+                processed_start,
+                processed_end,
+            ) else {
+                continue;
+            };
+
+            // Check if the point is within the post-processed match.
+            if point.col >= processed_start && point.col <= processed_end {
                 let original_match_text = line_text[start..end].to_string();
                 let mut match_text = original_match_text.clone();
-
-                // Apply grid-based post-processing
-                let (processed_start, processed_end) = if hint_config.post_processing {
-                    self.hint_post_processing(
-                        terminal,
-                        start_col,
-                        end_col,
-                        rio_backend::crosswords::pos::Line(point.row.0),
-                    )
-                    .unwrap_or((start_col, end_col))
-                } else {
-                    (start_col, end_col)
-                };
 
                 // Extract the processed text
                 if hint_config.post_processing {
