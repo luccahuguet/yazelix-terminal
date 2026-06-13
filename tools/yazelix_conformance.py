@@ -27,12 +27,15 @@ DEFAULT_SHADER_CONFIG = ROOT / "artifacts" / "shader_probe" / "rio_wgpu_config"
 ALLOWED_FIXTURE_KINDS = {"protocol", "visual-probe", "comparison"}
 ALLOWED_FIXTURE_SOURCES = {
     "kitty-spec",
+    "kitty-behavior",
     "ghostty-behavior",
+    "wezterm-behavior",
     "xterm",
     "iterm2",
     "de-facto",
     "rio-implementation",
 }
+ALLOWED_COMPARISON_TARGETS = {"kitty", "ghostty", "wezterm"}
 RUST_SUPPORTED_SUBCOMMANDS = {
     "list",
     "emit",
@@ -172,6 +175,15 @@ def validate_fixture_metadata(fixture: dict[str, Any], context: str) -> None:
         )
     if not fixture.get("reference"):
         raise SystemExit(f"{context} missing reference")
+    targets = fixture.get("comparison_targets")
+    if not isinstance(targets, list) or not targets:
+        raise SystemExit(f"{context} missing comparison_targets")
+    for target in targets:
+        if target not in ALLOWED_COMPARISON_TARGETS:
+            raise SystemExit(
+                f"{context} has unsupported comparison target {target!r}; "
+                f"expected one of {sorted(ALLOWED_COMPARISON_TARGETS)}"
+            )
 
 
 def validate_keyboard_manifest() -> None:

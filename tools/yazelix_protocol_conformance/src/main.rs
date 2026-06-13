@@ -15,12 +15,15 @@ const DEFAULT_ENV_OUTPUT: &[&str] = &["artifacts", "conformance", "env.json"];
 const ALLOWED_FIXTURE_KINDS: &[&str] = &["protocol", "visual-probe", "comparison"];
 const ALLOWED_FIXTURE_SOURCES: &[&str] = &[
     "kitty-spec",
+    "kitty-behavior",
     "ghostty-behavior",
+    "wezterm-behavior",
     "xterm",
     "iterm2",
     "de-facto",
     "rio-implementation",
 ];
+const ALLOWED_COMPARISON_TARGETS: &[&str] = &["kitty", "ghostty", "wezterm"];
 
 #[derive(Parser)]
 #[command(about = "Protocol conformance harness for the Yazelix terminal experiment.")]
@@ -830,6 +833,23 @@ fn validate_fixture_metadata(fixture: &Value, context: &str) -> Result<()> {
         .is_empty()
     {
         return Err(format!("{context} missing reference"));
+    }
+    let targets = fixture
+        .get("comparison_targets")
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("{context} missing comparison_targets"))?;
+    if targets.is_empty() {
+        return Err(format!("{context} missing comparison_targets"));
+    }
+    for target in targets {
+        let target = target
+            .as_str()
+            .ok_or_else(|| format!("{context} has non-string comparison target"))?;
+        if !ALLOWED_COMPARISON_TARGETS.contains(&target) {
+            return Err(format!(
+                "{context} has unsupported comparison target {target:?}; expected one of {ALLOWED_COMPARISON_TARGETS:?}"
+            ));
+        }
     }
     Ok(())
 }

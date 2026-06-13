@@ -13,6 +13,10 @@ The harness has three explicit scopes:
 - behavior comparison targets for black-box checks against Ghostty, WezTerm,
   Kitty, or other terminals
 
+Protocol authority and comparison targets are separate. Kitty owns Kitty
+protocol specs. Ghostty is the primary behavior and quality target for yzxterm.
+WezTerm is the mature independent terminal-engine comparison target.
+
 ## Commands
 
 List checked-in fixture streams:
@@ -34,7 +38,7 @@ List Kitty keyboard black-box capture cases:
 python3 tools/yazelix_conformance.py keyboard-list
 ```
 
-Capture and verify terminal keyboard bytes for Rio, Ghostty, or Kitty:
+Capture and verify terminal keyboard bytes for Rio, Kitty, Ghostty, or WezTerm:
 
 ```text
 python3 tools/yazelix_conformance.py keyboard-capture --terminal rio
@@ -124,7 +128,8 @@ Each fixture declares:
 | Field | Meaning |
 | --- | --- |
 | `kind` | Fixture bucket: `protocol`, `visual-probe`, or `comparison` |
-| `source` | Short source category: `kitty-spec`, `ghostty-behavior`, `xterm`, `iterm2`, `de-facto`, or `rio-implementation` |
+| `source` | Short source category: `kitty-spec`, `kitty-behavior`, `ghostty-behavior`, `wezterm-behavior`, `xterm`, `iterm2`, `de-facto`, or `rio-implementation` |
+| `comparison_targets` | External terminals to black-box compare against, currently `kitty`, `ghostty`, and `wezterm` |
 | `reference` | Human-readable note explaining the concrete source or comparison behavior |
 
 The fixtures are not proof that Rio supports every protocol correctly. They are
@@ -155,3 +160,7 @@ Kitty-owned protocol specs, not an implementation source to copy from.
 When a fixture records Ghostty behavior, it uses `source = "ghostty-behavior"`
 so that the harness does not imply that every fixture is a Ghostty conformance
 test.
+
+When a fixture records a Kitty-owned protocol, it uses `source = "kitty-spec"`
+and still lists Ghostty and WezTerm in `comparison_targets` when black-box runs
+against those terminals are useful.

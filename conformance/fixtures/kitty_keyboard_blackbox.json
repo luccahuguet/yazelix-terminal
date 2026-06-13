@@ -7,6 +7,11 @@
       "id": "esc_disambiguate",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "keys": "Esc",
       "workflow": "Helix/Yazi escape handling without timing ambiguity",
@@ -21,6 +26,11 @@
       "id": "ctrl_c_disambiguate",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "keys": "Ctrl+C",
       "workflow": "Shell/editor interrupt keys delivered to the application event loop",
@@ -35,6 +45,11 @@
       "id": "ctrl_shift_i_disambiguate",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "keys": "Ctrl+Shift+I",
       "workflow": "Helix/Nushell shortcuts that collide with legacy Tab/Ctrl+I",
@@ -49,6 +64,11 @@
       "id": "alt_left_bracket_disambiguate",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "keys": "Alt+[",
       "workflow": "Zellij/Yazi bindings that otherwise look like the start of CSI",
@@ -63,6 +83,11 @@
       "id": "dead_acute_e_disambiguate",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "keys": "Dead acute then E",
       "workflow": "Dead-key composition remains text input while Zellij enables enhanced keyboard disambiguation",
@@ -77,6 +102,11 @@
       "id": "kp_left_disambiguate",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "keys": "Keypad Left",
       "workflow": "Keypad navigation remains distinguishable from cursor arrows",
@@ -91,6 +121,11 @@
       "id": "kp_add_disambiguate",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "keys": "Keypad +",
       "workflow": "Keypad operators remain distinguishable from main-layout punctuation",
@@ -105,6 +140,11 @@
       "id": "a_repeat_all_keys_event_text",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "should",
       "keys": "Hold A until it repeats",
       "workflow": "Games and TUIs can distinguish key repeat while still receiving text",
@@ -121,6 +161,11 @@
       "id": "a_release_all_keys_event",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "should",
       "keys": "Press and release A",
       "workflow": "Games and TUIs can distinguish release events",
@@ -137,6 +182,11 @@
       "id": "shift_a_associated_text",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "should",
       "keys": "Shift+A",
       "workflow": "Text-aware editors receive both key identity and generated text",
@@ -153,6 +203,11 @@
       "id": "left_control_modifier_events",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "should",
       "keys": "Press and release Left Control",
       "workflow": "Report-all mode exposes standalone modifier key events",

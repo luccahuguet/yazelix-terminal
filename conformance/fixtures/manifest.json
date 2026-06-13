@@ -5,26 +5,41 @@
       "id": "osc8_hyperlink",
       "kind": "protocol",
       "source": "iterm2",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "protocol": "OSC 8",
       "description": "Open a hyperlink span, write linked text, close the span, then write plain text.",
-      "reference": "Common OSC 8 behavior, cross-checked against Rio hyperlink tests.",
+      "reference": "OSC 8 hyperlink syntax as introduced by iTerm2 and adopted by modern terminals; cross-checked against Rio hyperlink tests.",
       "hex": "706c61696e201b5d383b69643d79747a3b68747470733a2f2f6578616d706c652e636f6d076c696e6b1b5d383b3b07646f6e650d0a"
     },
     {
       "id": "osc52_clipboard_query",
       "kind": "protocol",
-      "source": "de-facto",
+      "source": "xterm",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "protocol": "OSC 52",
       "description": "Query the clipboard using the c clipboard designator.",
-      "reference": "OSC 52 clipboard query syntax.",
+      "reference": "Xterm OSC 52 clipboard query syntax.",
       "hex": "1b5d35323b633b3f07"
     },
     {
       "id": "osc5522_rich_clipboard_text_plain",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "should",
       "protocol": "Kitty OSC 5522",
       "description": "Read text/plain, begin a text/plain write, alias it to text/plain;charset=utf-8, send UTF-8 text/plain data, then finish the write.",
@@ -35,6 +50,11 @@
       "id": "osc21_kitty_color_control",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "should",
       "protocol": "Kitty OSC 21",
       "description": "Query foreground, set background, reset cursor, query selection background, set visual bell color, and query the second transparent background color.",
@@ -45,6 +65,11 @@
       "id": "osc22_pointer_shapes",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "should",
       "protocol": "Kitty OSC 22",
       "description": "Set a pointer shape, push two shapes, then query support for one valid and one invalid shape.",
@@ -55,6 +80,11 @@
       "id": "osc133_semantic_prompt",
       "kind": "protocol",
       "source": "ghostty-behavior",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "protocol": "OSC 133",
       "description": "Mark prompt start, input start, output start, and command end.",
@@ -65,6 +95,11 @@
       "id": "osc66_text_sizing",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "should",
       "protocol": "Kitty OSC 66",
       "description": "Render URL-safe UTF-8 text at scale 2.",
@@ -75,6 +110,11 @@
       "id": "osc99_notification",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "should",
       "protocol": "Kitty OSC 99",
       "description": "Display a simple Kitty desktop notification with no metadata.",
@@ -85,6 +125,11 @@
       "id": "kitty_keyboard_query",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "protocol": "Kitty keyboard",
       "description": "Query current Kitty keyboard protocol mode.",
@@ -95,6 +140,11 @@
       "id": "kitty_keyboard_all_flags_query",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "protocol": "Kitty keyboard",
       "description": "Set all Kitty keyboard progressive enhancement flags, then query the active flags.",
@@ -105,6 +155,11 @@
       "id": "kitty_keyboard_stack_restore",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "protocol": "Kitty keyboard",
       "description": "Push disambiguation mode, union report-all-keys, query, pop one stack entry, then query again.",
@@ -115,6 +170,11 @@
       "id": "kitty_unscroll_three_lines",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "should",
       "protocol": "Kitty unscroll",
       "description": "Request three lines of Kitty unscrolling with CSI 3 + T.",
@@ -125,6 +185,11 @@
       "id": "kitty_multiple_cursors_query_set_clear",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "should",
       "protocol": "Kitty multiple cursors",
       "description": "Query support, set a follow-main cursor, query cursor state, set extra cursor colors, query colors, then clear all extra cursors.",
@@ -135,6 +200,11 @@
       "id": "kitty_deccara_all_sgr",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "should",
       "protocol": "Kitty DECCARA",
       "description": "Write two short rows, enable rectangular attribute changes, then apply RGB foreground, indexed background, and bold SGR to a 2x3 rectangle.",
@@ -145,6 +215,11 @@
       "id": "kitty_file_transfer_send_start",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "cool",
       "protocol": "Kitty file transfer",
       "description": "Start an OSC 5113 send session that must request approval before filesystem access.",
@@ -155,6 +230,11 @@
       "id": "kitty_file_transfer_zlib_file",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "cool",
       "protocol": "Kitty file transfer",
       "description": "Declare a regular OSC 5113 file transfer entry using zlib compression metadata.",
@@ -165,6 +245,11 @@
       "id": "kitty_graphics_1x1_rgba",
       "kind": "protocol",
       "source": "kitty-spec",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "protocol": "Kitty graphics",
       "description": "Transmit and place a 1x1 RGBA red pixel image.",
@@ -175,6 +260,11 @@
       "id": "sixel_minimal",
       "kind": "protocol",
       "source": "de-facto",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "protocol": "Sixel",
       "description": "Minimal DCS sixel payload that exercises the sixel parser path.",
@@ -184,7 +274,12 @@
     {
       "id": "synchronized_output",
       "kind": "protocol",
-      "source": "de-facto",
+      "source": "iterm2",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "protocol": "DECSET 2026",
       "description": "Begin synchronized update, write two lines, then end synchronized update.",
@@ -195,6 +290,11 @@
       "id": "xtversion_query",
       "kind": "protocol",
       "source": "xterm",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "protocol": "XTVERSION",
       "description": "Query terminal version using CSI > q.",
@@ -205,6 +305,11 @@
       "id": "xtgettcap_rgb",
       "kind": "protocol",
       "source": "xterm",
+      "comparison_targets": [
+        "kitty",
+        "ghostty",
+        "wezterm"
+      ],
       "tier": "must",
       "protocol": "XTGETTCAP",
       "description": "Query the RGB terminfo capability using DCS + q RGB-in-hex.",
