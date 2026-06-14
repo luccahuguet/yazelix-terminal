@@ -18,6 +18,12 @@ const WARP_MOVE_MAX_CELLS: f32 = 32.0;
 /// column correction on short or empty lines. Keep that visual warp.
 const ONE_ROW_WARP_MAX_VERTICAL_CELLS: f32 = 1.001;
 
+/// Large same-column vertical relocations are usually transient terminal UI
+/// redraw positions, such as shells repainting an input line. Do not trail
+/// those from/to the left edge.
+const VERTICAL_RELOCATION_MAX_CELLS: f32 = 6.0;
+const VERTICAL_RELOCATION_MAX_HORIZONTAL_CELLS: f32 = 1.001;
+
 /// Nearby terminal-cursor movement should stay visually responsive. This
 /// includes editor/file-manager vertical `j`/`k` movement, not only typing.
 const SHORT_MOVE_MAX_CELLS: f32 = 2.001;
@@ -561,6 +567,12 @@ fn cursor_jump_should_snap(
         return false;
     }
 
+    if jump_x <= VERTICAL_RELOCATION_MAX_HORIZONTAL_CELLS
+        && jump_y > VERTICAL_RELOCATION_MAX_CELLS
+    {
+        return true;
+    }
+
     cursor_jump_distance_cells(jump_x, jump_y) > WARP_MOVE_MAX_CELLS
 }
 
@@ -654,9 +666,27 @@ mod tests {
     }
 
     #[test]
+    fn long_same_column_vertical_relocation_snaps_without_trail_animation() {
+        let cell_width = 10.0;
+        let cell_height = 20.0;
+        let mut cursor = TrailCursor::new();
+        seed_cursor(&mut cursor, cell_width, cell_height);
+
+        cursor.set_destination(0.0, cell_height * 10.0, cell_width, cell_height);
+        cursor.animate(cell_width, cell_height);
+
+        assert!(!cursor.is_animating());
+        assert_eq!(cursor.corners[0].x, 0.0);
+        assert_eq!(cursor.corners[0].y, cell_height * 10.0);
+        assert_eq!(cursor.corners[2].x, cell_width);
+        assert_eq!(cursor.corners[2].y, cell_height * 11.0);
+    }
+
+    #[test]
     fn diagonal_redraw_jump_exceeds_snap_threshold() {
         assert!(cursor_jump_should_snap(5.0, 10.0, 405.0, 810.0, 10.0, 20.0));
         assert!(!cursor_jump_should_snap(5.0, 10.0, 5.0, 30.0, 10.0, 20.0));
         assert!(!cursor_jump_should_snap(5.0, 10.0, 405.0, 30.0, 10.0, 20.0));
+        assert!(cursor_jump_should_snap(5.0, 10.0, 5.0, 210.0, 10.0, 20.0));
     }
 }

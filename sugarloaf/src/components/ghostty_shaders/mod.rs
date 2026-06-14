@@ -13,6 +13,8 @@ const UNIFORM_BINDING: u32 = 2;
 const SHADER_ANIMATION_WINDOW: Duration = Duration::from_millis(650);
 const CURSOR_TRAIL_WARP_MAX_CELLS: f32 = 32.0;
 const CURSOR_TRAIL_ONE_ROW_WARP_MAX_VERTICAL_CELLS: f32 = 1.001;
+const CURSOR_TRAIL_VERTICAL_RELOCATION_MAX_CELLS: f32 = 6.0;
+const CURSOR_TRAIL_VERTICAL_RELOCATION_MAX_HORIZONTAL_CELLS: f32 = 1.001;
 
 const FULLSCREEN_VERTEX: &str = r#"
 @vertex
@@ -513,6 +515,12 @@ fn cursor_transition_should_snap(previous: [f32; 4], current: [f32; 4]) -> bool 
 
     if jump_y <= CURSOR_TRAIL_ONE_ROW_WARP_MAX_VERTICAL_CELLS {
         return false;
+    }
+
+    if jump_x <= CURSOR_TRAIL_VERTICAL_RELOCATION_MAX_HORIZONTAL_CELLS
+        && jump_y > CURSOR_TRAIL_VERTICAL_RELOCATION_MAX_CELLS
+    {
+        return true;
     }
 
     jump_x.hypot(jump_y) > CURSOR_TRAIL_WARP_MAX_CELLS
@@ -1236,6 +1244,32 @@ void mainImage(out vec4 color, in vec2 fragCoord) {
         };
         let second = GhosttyShaderCursor {
             rect: [260.0, 420.0, 8.0, 16.0],
+            ..first
+        };
+
+        let mut state = GhosttyShaderFrameState::default();
+        state.cursor = Some(first);
+        brush.update_frame_state(state.clone());
+        brush.update_uniforms(800.0, 600.0);
+
+        state.cursor = Some(second);
+        brush.update_frame_state(state);
+        brush.update_uniforms(800.0, 600.0);
+
+        assert_eq!(brush.uniforms.previous_cursor, second.rect);
+        assert_eq!(brush.uniforms.current_cursor, second.rect);
+    }
+
+    #[test]
+    fn long_same_column_vertical_relocation_snaps_shader_previous_cursor() {
+        let mut brush = GhosttyShaderBrush::default();
+        let first = GhosttyShaderCursor {
+            rect: [10.0, 20.0, 8.0, 16.0],
+            color: [1.0, 0.0, 1.0, 1.0],
+            style: GhosttyCursorStyle::Block,
+        };
+        let second = GhosttyShaderCursor {
+            rect: [10.0, 180.0, 8.0, 16.0],
             ..first
         };
 
