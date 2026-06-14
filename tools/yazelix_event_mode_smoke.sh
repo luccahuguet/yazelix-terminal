@@ -33,6 +33,33 @@ run_wrapper_without_host_config() (
   "$@"
 )
 
+assert_confirm_before_quit_enabled() {
+  confirm_config="$1"
+  if ! grep -Eq '^[[:space:]]*confirm-before-quit[[:space:]]*=[[:space:]]*true' "$confirm_config"; then
+    die "packaged config must keep confirm-before-quit enabled: $confirm_config"
+  fi
+}
+
+find_effective_config() {
+  runtime_dir="$1"
+  find "$runtime_dir/yazelix-terminal" -maxdepth 2 -type f -path '*/effective-config-*/config.toml' | sed -n '1p'
+}
+
+for confirm_config in \
+  "$config" \
+  "$baseline_config" \
+  "$shader_config" \
+  "$package_dir/share/yazelix-terminal/emoji/twitter/config.toml" \
+  "$package_dir/share/yazelix-terminal/emoji/twitter/baseline/config.toml" \
+  "$package_dir/share/yazelix-terminal/emoji/twitter/profiles/shaders/config.toml" \
+  "$package_dir/share/yazelix-terminal/emoji/serenityos/config.toml" \
+  "$package_dir/share/yazelix-terminal/emoji/serenityos/baseline/config.toml" \
+  "$package_dir/share/yazelix-terminal/emoji/serenityos/profiles/shaders/config.toml"
+do
+  [ -r "$confirm_config" ] || die "packaged config is not readable: $confirm_config"
+  assert_confirm_before_quit_enabled "$confirm_config"
+done
+
 if grep -Eq '^[[:space:]]*strategy[[:space:]]*=[[:space:]]*"game"' "$config"; then
   die "packaged config defaults to renderer.strategy = \"game\""
 fi
@@ -79,7 +106,7 @@ if ! XDG_RUNTIME_DIR="$runtime_dir" YAZELIX_TERMINAL_PROFILE=full YAZELIX_TERMIN
   die "wrapper did not start with explicit game-mode override"
 fi
 
-game_config="$runtime_dir/yazelix-terminal/game-config/config.toml"
+game_config="$(find_effective_config "$runtime_dir")"
 [ -r "$game_config" ] || die "explicit game-mode config was not materialized: $game_config"
 if ! grep -Eq '^[[:space:]]*strategy[[:space:]]*=[[:space:]]*"game"' "$game_config"; then
   die "explicit game-mode config does not set renderer.strategy = \"game\""
@@ -96,7 +123,7 @@ if ! XDG_RUNTIME_DIR="$baseline_runtime_dir" YAZELIX_TERMINAL_PROFILE=baseline Y
   die "wrapper did not start with baseline no-effects profile"
 fi
 
-baseline_game_config="$baseline_runtime_dir/yazelix-terminal/game-config/config.toml"
+baseline_game_config="$(find_effective_config "$baseline_runtime_dir")"
 [ -r "$baseline_game_config" ] || die "baseline game-mode config was not materialized: $baseline_game_config"
 if ! grep -Eq '^[[:space:]]*strategy[[:space:]]*=[[:space:]]*"game"' "$baseline_game_config"; then
   die "baseline game-mode config does not set renderer.strategy = \"game\""
@@ -110,6 +137,7 @@ fi
 
 printf 'Yazelix Terminal event-mode package smoke passed\n'
 printf '%s\n' '- packaged config does not default to renderer.strategy = "game"'
+printf '%s\n' '- packaged configs keep confirm-before-quit enabled'
 printf '%s\n' '- packaged default uses Rio trail-cursor without custom shaders'
 printf '%s\n' '- desktop wrapper starts with packaged default and shader profiles'
 printf '%s\n' '- explicit YAZELIX_TERMINAL_RENDER_STRATEGY=game escape hatch works'

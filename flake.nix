@@ -147,7 +147,7 @@
           package = self'.packages."yazelix-terminal";
           package_layout = pkgs.runCommand "yazelix-terminal-package-layout" {} ''
             package=${self'.packages."yazelix-terminal"}
-            for path in \
+            config_paths="\
               share/yazelix-terminal/config.toml \
               share/yazelix-terminal/baseline/config.toml \
               share/yazelix-terminal/profiles/shaders/config.toml \
@@ -156,12 +156,20 @@
               share/yazelix-terminal/emoji/twitter/profiles/shaders/config.toml \
               share/yazelix-terminal/emoji/serenityos/config.toml \
               share/yazelix-terminal/emoji/serenityos/baseline/config.toml \
-              share/yazelix-terminal/emoji/serenityos/profiles/shaders/config.toml \
+              share/yazelix-terminal/emoji/serenityos/profiles/shaders/config.toml"
+            for path in \
+              $config_paths \
               share/yazelix-terminal/fonts/NotoSansSymbols2-Regular.otf \
               share/yazelix-terminal/package-metadata.json
             do
               if [ ! -f "$package/$path" ]; then
                 echo "missing package layout file: $path" >&2
+                exit 1
+              fi
+            done
+            for path in $config_paths; do
+              if ! grep -Eq '^[[:space:]]*confirm-before-quit[[:space:]]*=[[:space:]]*true' "$package/$path"; then
+                echo "packaged config must keep confirm-before-quit enabled: $path" >&2
                 exit 1
               fi
             done
