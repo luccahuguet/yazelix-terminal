@@ -32,13 +32,10 @@ const SHADOW_COLOR: [f32; 4] = [0.0, 0.0, 0.0, 0.28];
 const CARD_COLOR: [f32; 4] = [0.015, 0.015, 0.018, 0.98];
 const TITLE_COLOR: [u8; 4] = [225, 225, 226, 255];
 const BODY_COLOR: [u8; 4] = [177, 173, 176, 255];
-const CANCEL_BORDER_COLOR: [f32; 4] = [1.0, 0.34, 0.18, 1.0];
-const CANCEL_FILL_COLOR: [f32; 4] = [0.06, 0.065, 0.07, 1.0];
-const CANCEL_HOVER_FILL_COLOR: [f32; 4] = [0.10, 0.10, 0.105, 1.0];
-const CLOSE_FILL_COLOR: [f32; 4] = [0.20, 0.105, 0.105, 1.0];
-const CLOSE_HOVER_FILL_COLOR: [f32; 4] = [0.28, 0.125, 0.12, 1.0];
-const CANCEL_TEXT_COLOR: [u8; 4] = [205, 202, 204, 255];
-const CLOSE_TEXT_COLOR: [u8; 4] = [255, 191, 186, 255];
+const BUTTON_BORDER_COLOR: [f32; 4] = [1.0, 0.34, 0.18, 1.0];
+const BUTTON_FILL_COLOR: [f32; 4] = [0.06, 0.065, 0.07, 1.0];
+const BUTTON_HOVER_FILL_COLOR: [f32; 4] = [0.10, 0.10, 0.105, 1.0];
+const BUTTON_TEXT_COLOR: [u8; 4] = [205, 202, 204, 255];
 
 const DEPTH_BACKDROP: f32 = 0.0;
 const DEPTH_SHADOW: f32 = 0.05;
@@ -138,32 +135,27 @@ pub fn screen(sugarloaf: &mut Sugarloaf, hovered_action: Option<ConfirmQuitActio
     );
 
     let cancel_fill = if hovered_action == Some(ConfirmQuitAction::Cancel) {
-        CANCEL_HOVER_FILL_COLOR
+        BUTTON_HOVER_FILL_COLOR
     } else {
-        CANCEL_FILL_COLOR
+        BUTTON_FILL_COLOR
     };
     stroked_button(
         sugarloaf,
         layout.cancel_button,
-        CANCEL_BORDER_COLOR,
+        BUTTON_BORDER_COLOR,
         cancel_fill,
     );
 
     let close_fill = if hovered_action == Some(ConfirmQuitAction::Close) {
-        CLOSE_HOVER_FILL_COLOR
+        BUTTON_HOVER_FILL_COLOR
     } else {
-        CLOSE_FILL_COLOR
+        BUTTON_FILL_COLOR
     };
-    sugarloaf.rounded_rect(
-        None,
-        layout.close_button.x,
-        layout.close_button.y,
-        layout.close_button.width,
-        layout.close_button.height,
+    stroked_button(
+        sugarloaf,
+        layout.close_button,
+        BUTTON_BORDER_COLOR,
         close_fill,
-        DEPTH_BUTTON,
-        BUTTON_RADIUS,
-        ORDER,
     );
 
     let title_opts = DrawOpts {
@@ -178,12 +170,12 @@ pub fn screen(sugarloaf: &mut Sugarloaf, hovered_action: Option<ConfirmQuitActio
     };
     let cancel_opts = DrawOpts {
         font_size: BUTTON_FONT_SIZE,
-        color: CANCEL_TEXT_COLOR,
+        color: BUTTON_TEXT_COLOR,
         ..DrawOpts::default()
     };
     let close_opts = DrawOpts {
         font_size: BUTTON_FONT_SIZE,
-        color: CLOSE_TEXT_COLOR,
+        color: BUTTON_TEXT_COLOR,
         ..DrawOpts::default()
     };
 
