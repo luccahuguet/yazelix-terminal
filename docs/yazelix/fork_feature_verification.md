@@ -38,6 +38,28 @@ Related docs:
 - `docs/yazelix/stack_validation.md`
 - `docs/yazelix/release_closeout_2026_06.md`
 
+## Upstream Comparison Snapshot
+
+The fork base remains Rio commit
+`7e18dde1c90182a5170a7cca7779544967d7291c` (`flake.lock: Update
+(#1636)`, 2026-05-31). The current upstream comparison point is Rio
+`fdf5a7b9602bbeb19bfe5d3dae6ebe39894b1e39`
+(`v0.4.7-1-gfdf5a7b960`, 2026-06-10).
+
+Upstream-compatible fixes absorbed from the v0.4.7 comparison pass:
+
+| Upstream commit | Surface | Fork state | Verification evidence |
+| --- | --- | --- | --- |
+| `330ed70c9c` | Kitty graphics `X=`/`Y=` sub-cell placement offsets | Parser, placement occupancy, offset clamping, and renderer overlay positioning are aligned with upstream while preserving Yazelix image-overlay behavior | `cargo test -p rio-backend --features rio-window/x11 subcell_offset`; `cargo fmt --check`; `git diff --check` |
+| `9f0b59733c` | Route-aware cursor trail reset between tabs/panels | `TrailCursor` tracks route ids and snaps first frame after route changes, while Yazelix redraw-jump and Helix one-row trail policy stays covered | `cargo test -p rioterm trail_cursor`; `cargo fmt --check`; `git diff --check` |
+| `e96137a5a4` | Font fallback discovery restore | Sugarloaf UI text uses `FontLibrary::resolve_font_for_char` on non-macOS, matching the already-aligned grid emitter path | `cargo test -p sugarloaf --features rio-window/x11 font::symbol_map_tests::symbol_map_match_preserves_emoji_flag`; `cargo fmt --check`; `git diff --check` |
+| `fdf5a7b960` | Teletypewriter winsize fixes | Unix PTY creation receives initial pixel width/height, winsize fields use `ws_xpixel`/`ws_ypixel`, and Yazelix child-env sanitization remains intact | `cargo test -p teletypewriter`; `cargo fmt --check`; `git diff --check` |
+
+Open upstream comparison follow-ups:
+
+- `yzt-5hl.5`: evaluate Rio tab drag/reorder and island refactor separately
+- `yzt-5hl.6`: define a repeatable Rio sync workflow for future updates
+
 ## Common Gates
 
 These checks were used repeatedly as the fork-wide regression floor:
@@ -58,6 +80,10 @@ cargo fmt -- --check
 cargo check -p rioterm --no-default-features --features wgpu,x11,wayland
 cargo test -p rio-window
 cargo test --features wgpu ghostty -- --nocapture
+cargo test -p rio-backend --features rio-window/x11 subcell_offset
+cargo test -p rioterm trail_cursor
+cargo test -p sugarloaf --features rio-window/x11 font::symbol_map_tests::symbol_map_match_preserves_emoji_flag
+cargo test -p teletypewriter
 nix build .#yazelix-terminal-fast
 tools/yazelix_event_mode_smoke.sh ./result_yazelix_terminal_fast_package
 ```
