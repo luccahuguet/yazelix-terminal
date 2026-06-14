@@ -42,6 +42,10 @@ fn kitty_notification_close_reply(protocol_id: &str, payload: &str) -> String {
     format!("\x1b]99;i={protocol_id}:p=close;{payload}\x1b\\")
 }
 
+fn is_confirmable_quit_event(event: &RioEvent) -> bool {
+    matches!(event, RioEvent::Exit | RioEvent::Quit)
+}
+
 pub struct Application<'a> {
     config: rio_backend::config::Config,
     event_proxy: EventProxy,
@@ -547,7 +551,7 @@ impl ApplicationHandler<EventPayload> for Application<'_> {
                     }
                 }
             }
-            RioEventType::Rio(RioEvent::Exit) => {
+            RioEventType::Rio(event) if is_confirmable_quit_event(&event) => {
                 if let Some(route) = self.router.routes.get_mut(&window_id) {
                     if self.config.confirm_before_quit {
                         route.confirm_quit();
@@ -2219,10 +2223,7 @@ impl ApplicationHandler<EventPayload> for Application<'_> {
                             );
                         }
                     }
-                    if route.path == RoutePath::Welcome
-                        || route.path == RoutePath::ConfirmQuit
-                        || dirty_after
-                    {
+                    if route.path == RoutePath::Welcome || dirty_after {
                         route.request_redraw();
                     }
                     event_loop.set_control_flow(ControlFlow::Wait);
@@ -2371,4 +2372,18 @@ where
     std::thread::sleep(crate::constants::BELL_DURATION);
 
     Ok(())
+}
+
+#[cfg(test)]
+// Test lane: default
+mod tests {
+    use super::*;
+
+    // Defends: Super+Q maps to RioEvent::Quit, so confirm-before-quit must guard it.
+    #[test]
+    fn confirmable_quit_events_include_keybinding_quit() {
+        assert!(is_confirmable_quit_event(&RioEvent::Exit));
+        assert!(is_confirmable_quit_event(&RioEvent::Quit));
+        assert!(!is_confirmable_quit_event(&RioEvent::CreateWindow));
+    }
 }
