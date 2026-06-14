@@ -37,6 +37,7 @@ Related docs:
 - `docs/yazelix/performance_and_graphics_benchmark.md`
 - `docs/yazelix/stack_validation.md`
 - `docs/yazelix/release_closeout_2026_06.md`
+- `docs/yazelix/upstream_sync_workflow.md`
 
 ## Upstream Comparison Snapshot
 
@@ -55,10 +56,16 @@ Upstream-compatible fixes absorbed from the v0.4.7 comparison pass:
 | `e96137a5a4` | Font fallback discovery restore | Sugarloaf UI text uses `FontLibrary::resolve_font_for_char` on non-macOS, matching the already-aligned grid emitter path | `cargo test -p sugarloaf --features rio-window/x11 font::symbol_map_tests::symbol_map_match_preserves_emoji_flag`; `cargo fmt --check`; `git diff --check` |
 | `fdf5a7b960` | Teletypewriter winsize fixes | Unix PTY creation receives initial pixel width/height, winsize fields use `ws_xpixel`/`ws_ypixel`, and Yazelix child-env sanitization remains intact | `cargo test -p teletypewriter`; `cargo fmt --check`; `git diff --check` |
 
-Open upstream comparison follow-ups:
+Resolved upstream comparison decisions:
 
-- `yzt-5hl.5`: evaluate Rio tab drag/reorder and island refactor separately
-- `yzt-5hl.6`: define a repeatable Rio sync workflow for future updates
+- `yzt-5hl.5`: Rio tab drag/reorder and island refactor are not
+  cherry-picked in this pass. They should be adapted later only after tab
+  metadata moves out of index-keyed title/island maps. See
+  `docs/yazelix/upstream_sync_workflow.md`.
+- `yzt-5hl.6`: future Rio sync work defaults to selective cherry-pick/manual
+  adaptation, not blind rebase or merge. The workflow, delta classes,
+  high-conflict files, and validation ladder are recorded in
+  `docs/yazelix/upstream_sync_workflow.md`.
 
 ## Common Gates
 
